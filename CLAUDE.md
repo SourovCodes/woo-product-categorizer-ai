@@ -143,11 +143,15 @@ error:
   is a JSON *string* that still has to be decoded.
 - **Retrying a truncated request unchanged is guaranteed to truncate again.** That is the one case
   where a retry legitimately changes the request: `max_output_tokens` grows by 1.5× each attempt.
-- **Prompt caching is the cost lever, and it is fragile.** Measured: 2,816 of 3,164 input tokens came
-  back cached on a repeat call. It only works while the *prefix* is byte-identical, so the taxonomy
-  lives in `instructions`, is rendered once at the start of a run and frozen in the run-options
-  transient. Rendering it per batch would still work and would silently cost the cache — which is why
-  `ProviderTest` asserts on the request body.
+- **Prompt caching needs a shared prefix of roughly 1,024 tokens, and a small shop does not have
+  one.** Measured both ways: a 250-category taxonomy cached 2,816 of 3,164 input tokens on a repeat
+  call, while this shop's 51-category tree renders a 557-token prefix and caches nothing, on any
+  arrangement of the run. Do not treat a zero cached share as a bug, and do not pad the prompt to
+  reach the threshold — a small prompt is already cheap. The discipline still applies for shops that
+  do clear it: the taxonomy lives in `instructions`, rendered once at the start of a run and frozen
+  in the run-options transient, because it only works while the prefix is byte-identical. Rendering
+  it per batch would work and would silently cost the cache, which is why `ProviderTest` asserts on
+  the request body.
 - **A JSON-schema `enum` constrains the shape but not the judgement.** Observed: the model returned
   a valid category id for the wrong product. The enum is a cost and accuracy optimisation. Server-side
   validation of every returned id runs unconditionally, whether or not the enum was sent.

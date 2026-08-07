@@ -761,8 +761,14 @@ class Settings {
 	 *
 	 * Reported in tokens and never in money. Prices move, they differ per model and
 	 * per account, and a confidently wrong number about what something cost is worse
-	 * than no number at all. The cached share is worth showing because it is the one
-	 * figure that tells you prompt caching is working.
+	 * than no number at all.
+	 *
+	 * The cached share is mentioned only when there was one. Prompt caching needs a
+	 * shared prefix of at least about a thousand tokens, and a shop with a few dozen
+	 * categories does not have one — measured at 557 tokens for a 51-category tree,
+	 * which never caches however the run is arranged. Reporting "0% from cache"
+	 * there would look like a fault rather than a shop whose prompt is small enough
+	 * not to need it.
 	 *
 	 * @param array $status Status array.
 	 * @return string
@@ -778,13 +784,22 @@ class Settings {
 		$output = isset( $counts['output_tokens'] ) ? (int) $counts['output_tokens'] : 0;
 		$cached = isset( $counts['cached_tokens'] ) ? (int) $counts['cached_tokens'] : 0;
 
-		return sprintf(
-			/* translators: 1: input tokens. 2: percentage served from cache. 3: output tokens. */
-			__( '%1$s input tokens (%2$d%% from cache), %3$s output.', 'woo-product-categorizer-ai' ),
+		$line = sprintf(
+			/* translators: 1: input tokens used. 2: output tokens used. */
+			__( '%1$s input tokens, %2$s output.', 'woo-product-categorizer-ai' ),
 			number_format_i18n( $input ),
-			(int) floor( ( $cached / $input ) * 100 ),
 			number_format_i18n( $output )
 		);
+
+		if ( $cached > 0 ) {
+			$line .= ' ' . sprintf(
+				/* translators: %d: percentage of input tokens served from the provider's cache. */
+				__( '%d%% of the input was served from cache.', 'woo-product-categorizer-ai' ),
+				(int) floor( ( $cached / $input ) * 100 )
+			);
+		}
+
+		return $line;
 	}
 
 	/**

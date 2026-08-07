@@ -8,6 +8,7 @@
 namespace WooProductCategorizerAi\Jobs;
 
 use Exception;
+use WooProductCategorizerAi\Categorize\Assignment;
 use WooProductCategorizerAi\Taxonomy\Proposal;
 
 defined( 'ABSPATH' ) || exit;
@@ -131,6 +132,9 @@ class Scheduler {
 		add_action( self::ACTION_PROPOSE_SAMPLE, array( $this, 'handle_propose_sample' ), 10, 1 );
 		add_action( self::ACTION_PROPOSE_ASK, array( $this, 'handle_propose_ask' ), 10, 1 );
 		add_action( self::ACTION_PROPOSE_FINALISE, array( $this, 'handle_propose_finalise' ), 10, 1 );
+		add_action( self::ACTION_ASSIGN, array( $this, 'handle_assign' ) );
+		add_action( self::ACTION_ASSIGN_BATCH, array( $this, 'handle_assign_batch' ), 10, 2 );
+		add_action( self::ACTION_ASSIGN_FINALISE, array( $this, 'handle_assign_finalise' ), 10, 1 );
 
 		/*
 		 * A dead chain cannot report its own failure: the action that would have
@@ -157,6 +161,11 @@ class Scheduler {
 				'label'       => __( 'Propose a category tree', 'woo-product-categorizer-ai' ),
 				'description' => __( 'Reads a representative sample of your catalogue and asks the model to design a category tree. Nothing is created until you review it and press Create categories.', 'woo-product-categorizer-ai' ),
 				'action'      => self::ACTION_PROPOSE,
+			),
+			'assign'   => array(
+				'label'       => __( 'Categorise the catalogue', 'woo-product-categorizer-ai' ),
+				'description' => __( 'Files every product in scope under the category that fits it best. Uses the settings above as they are saved when the run starts.', 'woo-product-categorizer-ai' ),
+				'action'      => self::ACTION_ASSIGN,
 			),
 		);
 	}
@@ -224,6 +233,46 @@ class Scheduler {
 	 */
 	public function handle_propose_finalise( $run = 0 ) {
 		( new Proposal() )->finalise( (int) $run );
+	}
+
+	/**
+	 * Start an assignment run.
+	 *
+	 * @return void
+	 */
+	public function handle_assign() {
+		( new Assignment() )->start();
+	}
+
+	/**
+	 * Categorise one batch of products.
+	 *
+	 * @param int $after_id Continue after this product id.
+	 * @param int $run      The run this action belongs to.
+	 * @return void
+	 */
+	public function handle_assign_batch( $after_id = 0, $run = 0 ) {
+		/*
+		 * Every term write in a batch walks the ancestors to recount them, so across
+		 * 4,386 products this is the single largest avoidable cost in the plugin.
+		 * Deferred per batch rather than per run, so an action that dies part way
+		 * through does not leave counting suspended site-wide.
+		 */
+		wp_defer_term_counting( true );
+
+		( new Assignment() )->batch( (int) $after_id, (int) $run );
+
+		wp_defer_term_counting( false );
+	}
+
+	/**
+	 * Close out an assignment run.
+	 *
+	 * @param int $run The run this action belongs to.
+	 * @return void
+	 */
+	public function handle_assign_finalise( $run = 0 ) {
+		( new Assignment() )->finalise( (int) $run );
 	}
 
 	/**
