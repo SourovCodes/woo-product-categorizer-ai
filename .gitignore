@@ -1,0 +1,13 @@
+/vendor/
+/node_modules/
+/dist/
+/coverage-html/
+/coverage.xml
+/coverage.txt
+/.phpcs.cache
+/.phpunit.cache/
+/.phpunit.result.cache
+composer.phar
+.DS_Store
+*.log
+/tests/wp-tests-config.php

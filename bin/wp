@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+#
+# wp-cli wrapper for the Local by WP Engine site this plugin is symlinked into.
+#
+# A bare `wp` fails here with "Error establishing a database connection": wp-config.php
+# sets DB_HOST to localhost, and Local serves MySQL over a socket that the Homebrew PHP
+# knows nothing about. This wrapper runs wp-cli under Local's own PHP build with that
+# socket passed in explicitly, and resolves every path from Local's sites.json so it
+# keeps working if the site is recreated with a new ID.
+#
+# Usage: ./bin/wp plugin list
+#        ./bin/wp wc product list --user=1
+#
+set -euo pipefail
+
+PLUGIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PLUGIN_SLUG="$(basename "$PLUGIN_DIR")"
+LOCAL_SUPPORT="$HOME/Library/Application Support/Local"
+SITES_JSON="$LOCAL_SUPPORT/sites.json"
+
+die() {
+	echo "bin/wp: $1" >&2
+	exit 1
+}
+
+command -v jq >/dev/null 2>&1 || die "jq is required but was not found on PATH."
+WP_BIN="$(command -v wp || true)"
+[ -n "$WP_BIN" ] || die "wp-cli is required but was not found on PATH."
+[ -f "$SITES_JSON" ] || die "Local's sites.json not found at $SITES_JSON. Is Local installed?"
+
+# Find the Local site whose plugins directory contains a symlink back to this checkout.
+SITE_ID=""
+SITE_PATH=""
+while IFS=$'\t' read -r id path; do
+	# Local stores paths with a literal ~ for the home directory.
+	path="${path/#\~/$HOME}"
+	link="$path/app/public/wp-content/plugins/$PLUGIN_SLUG"
+	if [ -e "$link" ] && [ "$(cd "$link" && pwd -P)" = "$PLUGIN_DIR" ]; then
+		SITE_ID="$id"
+		SITE_PATH="$path"
+		break
+	fi
+done < <(jq -r 'to_entries[] | [.value.id, .value.path] | @tsv' "$SITES_JSON")
+
+[ -n "$SITE_ID" ] || die "No Local site links to $PLUGIN_DIR. Symlink this directory into a site's wp-content/plugins first."
+
+SOCKET="$LOCAL_SUPPORT/run/$SITE_ID/mysql/mysqld.sock"
+[ -S "$SOCKET" ] || die "MySQL socket not found at $SOCKET. Start the site in Local and try again."
+
+# Local ships its own PHP; use the version the site is configured for so CLI and web agree.
+PHP_VERSION="$(jq -r --arg id "$SITE_ID" '.[$id].services.php.version' "$SITES_JSON")"
+PHP_BIN=""
+for candidate in "$LOCAL_SUPPORT/lightning-services/php-$PHP_VERSION"*/bin/*/bin/php; do
+	if [ -x "$candidate" ]; then
+		PHP_BIN="$candidate"
+		break
+	fi
+done
+[ -n "$PHP_BIN" ] || die "Local's PHP $PHP_VERSION binary not found under $LOCAL_SUPPORT/lightning-services."
+
+cd "$SITE_PATH/app/public"
+exec "$PHP_BIN" \
+	-d mysqli.default_socket="$SOCKET" \
+	-d pdo_mysql.default_socket="$SOCKET" \
+	"$WP_BIN" "$@"

@@ -1,0 +1,53 @@
+{
+	"name": "sourovcodes/woo-product-categorizer-ai",
+	"description": "Categorise WooCommerce products with an LLM: propose a category tree, review it, then assign the whole catalogue.",
+	"type": "wordpress-plugin",
+	"license": "GPL-2.0-or-later",
+	"require": {
+		"php": ">=8.2"
+	},
+	"require-dev": {
+		"woocommerce/woocommerce-sniffs": "^2.0",
+		"phpunit/phpunit": "^9.6",
+		"wp-phpunit/wp-phpunit": "^7.0",
+		"yoast/phpunit-polyfills": "^4.0"
+	},
+	"autoload": {
+		"psr-4": {
+			"WooProductCategorizerAi\\": "includes/"
+		}
+	},
+	"autoload-dev": {
+		"psr-4": {
+			"WooProductCategorizerAi\\Tests\\": "tests/"
+		}
+	},
+	"config": {
+		"platform": {
+			"php": "8.2.29"
+		},
+		"allow-plugins": {
+			"dealerdirect/phpcodesniffer-composer-installer": true
+		},
+		"sort-packages": true
+	},
+	"scripts": {
+		"lint": "phpcs",
+		"lint:fix": "phpcbf",
+		"test": "phpunit",
+		"test:coverage": "phpunit --coverage-text --coverage-html=coverage-html",
+		"check": [
+			"@composer validate --strict",
+			"bin/check-version.sh",
+			"@lint",
+			"@test"
+		]
+	},
+	"scripts-descriptions": {
+		"lint": "Check the plugin against the WooCommerce/WordPress coding standards.",
+		"lint:fix": "Automatically fix the coding standard violations that can be fixed.",
+		"test": "Run the PHPUnit suite against the WordPress test library.",
+		"test:coverage": "Run the suite and write a coverage report to coverage-html/.",
+		"check": "Run everything CI runs before it builds: validate, version, lint, test."
+	}
+}

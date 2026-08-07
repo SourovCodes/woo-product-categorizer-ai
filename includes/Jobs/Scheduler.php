@@ -1,0 +1,314 @@
+<?php
+/**
+ * Background job routing.
+ *
+ * @package WooProductCategorizerAi
+ */
+
+namespace WooProductCategorizerAi\Jobs;
+
+use Exception;
+
+defined( 'ABSPATH' ) || exit;
+
+/**
+ * Owns every Action Scheduler hook the plugin queues.
+ *
+ * The single routing layer: it starts runs, chains their follow-up actions and
+ * closes out the ones that die. It never talks to a provider itself — the job
+ * classes in Taxonomy\ and Categorize\ do that.
+ *
+ * Unlike the sibling sync plugin there are no recurring schedules here. Every job
+ * is started by hand from the settings screen: you propose a tree once, create the
+ * terms once, categorise once. Nothing is on a timer, so none of the
+ * reconcile-the-queue-against-the-settings machinery is needed.
+ */
+class Scheduler {
+
+	/**
+	 * Action Scheduler group for everything this plugin queues.
+	 */
+	const GROUP = 'woo-product-categorizer-ai';
+
+	/**
+	 * Claim priority for the plugin's actions, matching Action Scheduler's own default.
+	 */
+	const PRIORITY_DEFAULT = 10;
+
+	/**
+	 * Start a taxonomy proposal.
+	 */
+	const ACTION_PROPOSE = 'woo_product_categorizer_ai_propose';
+
+	/**
+	 * Collect the sample of the catalogue the proposal is built from.
+	 */
+	const ACTION_PROPOSE_SAMPLE = 'woo_product_categorizer_ai_propose_sample';
+
+	/**
+	 * Ask the provider for a tree. Kept apart from the sampling because this one
+	 * action holds a request measured at over a minute.
+	 */
+	const ACTION_PROPOSE_ASK = 'woo_product_categorizer_ai_propose_ask';
+
+	/**
+	 * Tidy the returned tree and publish it as the draft.
+	 */
+	const ACTION_PROPOSE_FINALISE = 'woo_product_categorizer_ai_propose_finalise';
+
+	/**
+	 * Start an assignment run.
+	 */
+	const ACTION_ASSIGN = 'woo_product_categorizer_ai_assign';
+
+	/**
+	 * Categorise one batch of products.
+	 */
+	const ACTION_ASSIGN_BATCH = 'woo_product_categorizer_ai_assign_batch';
+
+	/**
+	 * Close out an assignment run.
+	 */
+	const ACTION_ASSIGN_FINALISE = 'woo_product_categorizer_ai_assign_finalise';
+
+	/**
+	 * Start a revert.
+	 */
+	const ACTION_REVERT = 'woo_product_categorizer_ai_revert';
+
+	/**
+	 * Restore one batch of products to their previous categories.
+	 */
+	const ACTION_REVERT_BATCH = 'woo_product_categorizer_ai_revert_batch';
+
+	/**
+	 * Close out a revert.
+	 */
+	const ACTION_REVERT_FINALISE = 'woo_product_categorizer_ai_revert_finalise';
+
+	/**
+	 * Log source shared by every class in the plugin.
+	 *
+	 * Lives here rather than on the provider so that a class which never makes a
+	 * request still has one place to log to.
+	 */
+	const LOG_SOURCE = 'woo-product-categorizer-ai';
+
+	/**
+	 * Which job each action belongs to.
+	 *
+	 * Consulted by abandon_run() when Action Scheduler reports a failure: all it
+	 * hands over is an action, and the status that needs closing is the job's.
+	 *
+	 * @param string $hook Action hook.
+	 * @return string Job key, or an empty string when the hook is not ours.
+	 */
+	public static function job_for_action( $hook ) {
+		$map = array(
+			self::ACTION_PROPOSE          => 'taxonomy',
+			self::ACTION_PROPOSE_SAMPLE   => 'taxonomy',
+			self::ACTION_PROPOSE_ASK      => 'taxonomy',
+			self::ACTION_PROPOSE_FINALISE => 'taxonomy',
+			self::ACTION_ASSIGN           => 'assign',
+			self::ACTION_ASSIGN_BATCH     => 'assign',
+			self::ACTION_ASSIGN_FINALISE  => 'assign',
+			self::ACTION_REVERT           => 'revert',
+			self::ACTION_REVERT_BATCH     => 'revert',
+			self::ACTION_REVERT_FINALISE  => 'revert',
+		);
+
+		return isset( $map[ $hook ] ) ? $map[ $hook ] : '';
+	}
+
+	/**
+	 * Register the plugin's Action Scheduler hooks.
+	 *
+	 * @return void
+	 */
+	public function register() {
+		/*
+		 * A dead chain cannot report its own failure: the action that would have
+		 * called finish() or fail() is the one that just died. Without these three,
+		 * a crashed run reads as "running" until STALE_AFTER expires six hours later,
+		 * during which the screen lies and trigger() refuses to start it again.
+		 */
+		add_action( 'action_scheduler_failed_execution', array( $this, 'handle_failed_execution' ), 10, 2 );
+		add_action( 'action_scheduler_failed_action', array( $this, 'handle_timed_out_action' ), 10, 1 );
+		add_action( 'action_scheduler_unexpected_shutdown', array( $this, 'handle_unexpected_shutdown' ), 10, 2 );
+	}
+
+	/**
+	 * Close out a run whose action threw.
+	 *
+	 * @param int       $action_id Action that failed.
+	 * @param Exception $exception What it threw.
+	 * @return void
+	 */
+	public function handle_failed_execution( $action_id = 0, $exception = null ) {
+		$reason = $exception instanceof Exception ? $exception->getMessage() : __( 'an unknown error', 'woo-product-categorizer-ai' );
+
+		$this->abandon_run(
+			$action_id,
+			/* translators: %s: error message. */
+			sprintf( __( 'The run stopped because a background task failed: %s', 'woo-product-categorizer-ai' ), $reason )
+		);
+	}
+
+	/**
+	 * Close out a run whose action ran past Action Scheduler's timeout.
+	 *
+	 * @param int $action_id Action that was given up on.
+	 * @return void
+	 */
+	public function handle_timed_out_action( $action_id = 0 ) {
+		$this->abandon_run(
+			$action_id,
+			__( 'The run stopped because a background task took too long and was abandoned.', 'woo-product-categorizer-ai' )
+		);
+	}
+
+	/**
+	 * Close out a run whose action ended the request outright.
+	 *
+	 * @param int   $action_id Action that was running.
+	 * @param array $error     The PHP error that ended the request.
+	 * @return void
+	 */
+	public function handle_unexpected_shutdown( $action_id = 0, $error = array() ) {
+		$reason = isset( $error['message'] ) ? (string) $error['message'] : __( 'a fatal error', 'woo-product-categorizer-ai' );
+
+		$this->abandon_run(
+			$action_id,
+			/* translators: %s: error message. */
+			sprintf( __( 'The run stopped because a background task ended unexpectedly: %s', 'woo-product-categorizer-ai' ), $reason )
+		);
+	}
+
+	/**
+	 * Record that a run died with the action that was carrying it.
+	 *
+	 * @param int    $action_id Action that failed.
+	 * @param string $message   Reason to record against the run.
+	 * @return void
+	 */
+	protected function abandon_run( $action_id, $message ) {
+		$action = self::fetch_action( absint( $action_id ) );
+
+		if ( null === $action ) {
+			return;
+		}
+
+		$job = self::job_for_action( $action->get_hook() );
+
+		if ( '' === $job ) {
+			return;
+		}
+
+		$args = (array) $action->get_args();
+
+		/*
+		 * A superseded action failing says nothing about the run that replaced it, and
+		 * failing that one on its behalf would report a healthy run as broken.
+		 */
+		if ( isset( $args['run'] ) && ! Status::is_current_run( $job, (int) $args['run'] ) ) {
+			return;
+		}
+
+		// The job may already have recorded its own, better, reason for stopping.
+		if ( 'running' !== Status::get( $job )['state'] ) {
+			return;
+		}
+
+		Status::fail( $job, $message );
+
+		self::log( 'error', sprintf( '%s run abandoned: %s', $job, $message ) );
+	}
+
+	/**
+	 * Read a queued action back from Action Scheduler.
+	 *
+	 * @param int $action_id Action to read.
+	 * @return \ActionScheduler_Action|null The action, or null when it cannot be read.
+	 */
+	protected static function fetch_action( $action_id ) {
+		if ( ! $action_id || ! class_exists( '\ActionScheduler' ) ) {
+			return null;
+		}
+
+		try {
+			$action = \ActionScheduler::store()->fetch_action( $action_id );
+		} catch ( Exception $exception ) {
+			return null;
+		}
+
+		// A missing action comes back as a null action rather than as an error.
+		if ( ! $action instanceof \ActionScheduler_Action || ! $action->get_hook() ) {
+			return null;
+		}
+
+		return $action;
+	}
+
+	/**
+	 * Queue a follow-up action for the current run.
+	 *
+	 * @param string $hook Action hook to queue.
+	 * @param array  $args Arguments to pass along.
+	 * @return void
+	 */
+	public static function chain( $hook, array $args ) {
+		if ( ! self::is_available() ) {
+			return;
+		}
+
+		as_enqueue_async_action( $hook, $args, self::GROUP, false, self::PRIORITY_DEFAULT );
+	}
+
+	/**
+	 * Cancel everything this plugin has queued.
+	 *
+	 * @return void
+	 */
+	public static function unschedule_all() {
+		if ( ! function_exists( 'as_unschedule_all_actions' ) ) {
+			return;
+		}
+
+		as_unschedule_all_actions( '', array(), self::GROUP );
+	}
+
+	/**
+	 * Write to the WooCommerce log under this plugin's source.
+	 *
+	 * Static because the callers are spread across job classes that have no reason
+	 * to hold a scheduler. Guarded because the logger comes from WooCommerce, and a
+	 * job must not fatal on a site where it has gone missing.
+	 *
+	 * Never log a request body — it carries the catalogue — and never log headers,
+	 * because they carry the API key.
+	 *
+	 * @param string $level   One of the WC_Log_Levels constants.
+	 * @param string $message What happened.
+	 * @return void
+	 */
+	public static function log( $level, $message ) {
+		if ( ! function_exists( 'wc_get_logger' ) ) {
+			return;
+		}
+
+		wc_get_logger()->log( $level, $message, array( 'source' => self::LOG_SOURCE ) );
+	}
+
+	/**
+	 * Determine whether Action Scheduler is loaded.
+	 *
+	 * It ships inside WooCommerce, but guard anyway so the plugin degrades to a
+	 * no-op instead of fatally erroring if that ever changes.
+	 *
+	 * @return bool True when the Action Scheduler API is available.
+	 */
+	public static function is_available() {
+		return function_exists( 'as_enqueue_async_action' )
+			&& function_exists( 'as_unschedule_all_actions' );
+	}
+}
