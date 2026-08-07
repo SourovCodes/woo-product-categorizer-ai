@@ -250,6 +250,22 @@ class Scheduler {
 			return new \WP_Error( 'wpcai_already_running', __( 'That job is already running.', 'woo-product-categorizer-ai' ) );
 		}
 
+		/*
+		 * A batch may legitimately sit at the provider for a full day, which is four
+		 * times longer than Status::STALE_AFTER allows a run to look alive. Left to the
+		 * staleness check alone, the Run button would quietly come back after six hours
+		 * and a second press would open a second batch over the same products — paying
+		 * twice for two sets of answers that then fight over what to write.
+		 */
+		$flight = BulkRun::in_flight();
+
+		if ( ! empty( $flight ) && BulkRun::JOB === $job ) {
+			return new \WP_Error(
+				'wpcai_batch_in_flight',
+				__( 'A batch for this job is still with the provider. Wait for it, or cancel it first.', 'woo-product-categorizer-ai' )
+			);
+		}
+
 		as_enqueue_async_action( $jobs[ $job ]['action'], array(), self::GROUP, false, self::PRIORITY_DEFAULT );
 
 		return true;

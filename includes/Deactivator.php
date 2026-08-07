@@ -7,6 +7,7 @@
 
 namespace WooProductCategorizerAi;
 
+use WooProductCategorizerAi\Categorize\BulkRun;
 use WooProductCategorizerAi\Jobs\Scheduler;
 use WooProductCategorizerAi\Jobs\Status;
 
@@ -33,6 +34,29 @@ final class Deactivator {
 	 * @return void
 	 */
 	public static function deactivate() {
+		/*
+		 * A batch already handed to the provider is the one thing here that keeps
+		 * costing money after the plugin stops. Nothing local will poll it again —
+		 * the queue is about to be emptied — so it would run to completion, be billed
+		 * in full, and produce answers no one will ever collect. Told to stop first,
+		 * while there is still something able to ask.
+		 */
+		if ( ! empty( BulkRun::in_flight() ) ) {
+			$cancelled = ( new BulkRun() )->cancel();
+
+			if ( is_wp_error( $cancelled ) ) {
+				Scheduler::log( 'warning', 'Could not stop the batch during deactivation: ' . $cancelled->get_error_message() );
+			}
+
+			/*
+			 * Dropped either way. If the provider could not be reached, the batch is
+			 * beyond reach too — nothing here will poll it again — and a record that
+			 * cannot be acted on would only strand the job behind the in-flight guard
+			 * on reactivation.
+			 */
+			BulkRun::forget();
+		}
+
 		Status::abandon( __( 'Interrupted: the plugin was deactivated while this run was in progress.', 'woo-product-categorizer-ai' ) );
 
 		Scheduler::unschedule_all();

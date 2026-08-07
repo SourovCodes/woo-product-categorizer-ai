@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-08-07T22:23:58+00:00\n"
+"POT-Creation-Date: 2026-08-07T22:53:33+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: woo-product-categorizer-ai\n"
@@ -76,7 +76,7 @@ msgid "50 products per request"
 msgstr "50 Produkte pro Anfrage"
 
 #: includes/Admin/Settings.php:264
-#: includes/Admin/Settings.php:1354
+#: includes/Admin/Settings.php:1355
 msgid "Product Categorizer AI"
 msgstr "Produkt-Kategorisierung mit KI"
 
@@ -118,7 +118,7 @@ msgid "Other models on your account"
 msgstr "Weitere Modelle deines Kontos"
 
 #: includes/Admin/Settings.php:553
-#: includes/Admin/Settings.php:1421
+#: includes/Admin/Settings.php:1422
 msgid "— Use the recommended model —"
 msgstr "— Empfohlenes Modell verwenden —"
 
@@ -341,7 +341,7 @@ msgid "Batch cancelled. Nothing was written to your products."
 msgstr "Sammelauftrag abgebrochen. An deinen Produkten wurde nichts geändert."
 
 #: includes/Admin/Settings.php:1224
-#: includes/Categorize/BulkRun.php:654
+#: includes/Categorize/BulkRun.php:670
 msgid "There is no batch waiting to be cancelled."
 msgstr "Es wartet kein Sammelauftrag, der abgebrochen werden könnte."
 
@@ -349,191 +349,196 @@ msgstr "Es wartet kein Sammelauftrag, der abgebrochen werden könnte."
 msgid "This provider cannot accept a whole catalogue at once."
 msgstr "Dieser Anbieter kann keinen ganzen Katalog auf einmal annehmen."
 
+#: includes/Admin/Settings.php:1226
+#: includes/Jobs/Scheduler.php:265
+msgid "A batch for this job is still with the provider. Wait for it, or cancel it first."
+msgstr "Für diese Aufgabe liegt noch ein Sammelauftrag beim Anbieter. Warte ihn ab oder brich ihn zuerst ab."
+
 #. translators: %s: number of categories renamed.
-#: includes/Admin/Settings.php:1242
-#: includes/Admin/Settings.php:1244
+#: includes/Admin/Settings.php:1243
+#: includes/Admin/Settings.php:1245
 #, php-format
 msgid "%s renamed"
 msgstr "%s umbenannt"
 
 #. translators: %s: number of categories removed.
-#: includes/Admin/Settings.php:1248
-#: includes/Admin/Settings.php:1250
+#: includes/Admin/Settings.php:1249
+#: includes/Admin/Settings.php:1251
 #, php-format
 msgid "%s removed"
 msgstr "%s entfernt"
 
 #. translators: %s: number of categories added.
-#: includes/Admin/Settings.php:1254
-#: includes/Admin/Settings.php:1256
+#: includes/Admin/Settings.php:1255
+#: includes/Admin/Settings.php:1257
 #, php-format
 msgid "%s added"
 msgstr "%s hinzugefügt"
 
 #. translators: %s: number of lines that were too deep.
-#: includes/Admin/Settings.php:1260
+#: includes/Admin/Settings.php:1261
 #, php-format
 msgid "%s line was too deep to add"
 msgstr "%s Zeile war zu tief verschachtelt"
 
 #. translators: %s: number of lines that were too deep.
-#: includes/Admin/Settings.php:1262
+#: includes/Admin/Settings.php:1263
 #, php-format
 msgid "%s lines were too deep to add"
 msgstr "%s Zeilen waren zu tief verschachtelt"
 
 #. translators: %s: number of categories created.
-#: includes/Admin/Settings.php:1266
-#: includes/Admin/Settings.php:1268
+#: includes/Admin/Settings.php:1267
+#: includes/Admin/Settings.php:1269
 #, php-format
 msgid "%s created"
 msgstr "%s angelegt"
 
 #. translators: %s: number of existing categories taken over.
-#: includes/Admin/Settings.php:1272
+#: includes/Admin/Settings.php:1273
 #, php-format
 msgid "%s already existed and is now managed here"
 msgstr "%s gab es bereits und wird jetzt hier verwaltet"
 
 #. translators: %s: number of existing categories taken over.
-#: includes/Admin/Settings.php:1274
+#: includes/Admin/Settings.php:1275
 #, php-format
 msgid "%s already existed and are now managed here"
 msgstr "%s gab es bereits und werden jetzt hier verwaltet"
 
 #. translators: %s: number of categories left untouched.
-#: includes/Admin/Settings.php:1278
-#: includes/Admin/Settings.php:1280
+#: includes/Admin/Settings.php:1279
+#: includes/Admin/Settings.php:1281
 #, php-format
 msgid "%s unchanged"
 msgstr "%s unverändert"
 
 #. translators: %s: number of categories that could not be created.
-#: includes/Admin/Settings.php:1284
-#: includes/Admin/Settings.php:1286
+#: includes/Admin/Settings.php:1285
+#: includes/Admin/Settings.php:1287
 #, php-format
 msgid "%s could not be created"
 msgstr "%s konnte nicht angelegt werden"
 
 #. translators: %s: number of products whose undo history was cleared.
-#: includes/Admin/Settings.php:1290
+#: includes/Admin/Settings.php:1291
 #, php-format
 msgid "%s product cleared"
 msgstr "%s Produkt bereinigt"
 
 #. translators: %s: number of products whose undo history was cleared.
-#: includes/Admin/Settings.php:1292
+#: includes/Admin/Settings.php:1293
 #, php-format
 msgid "%s products cleared"
 msgstr "%s Produkte bereinigt"
 
-#: includes/Admin/Settings.php:1339
+#: includes/Admin/Settings.php:1340
 msgid "You do not have permission to manage these settings."
 msgstr "Du hast keine Berechtigung, diese Einstellungen zu verwalten."
 
-#: includes/Admin/Settings.php:1362
+#: includes/Admin/Settings.php:1363
 msgid "AI provider"
 msgstr "KI-Anbieter"
 
-#: includes/Admin/Settings.php:1366
+#: includes/Admin/Settings.php:1367
 msgid "Provider"
 msgstr "Anbieter"
 
-#: includes/Admin/Settings.php:1376
+#: includes/Admin/Settings.php:1377
 msgid "Each provider keeps its own key and model, so switching between them does not lose either."
 msgstr "Jeder Anbieter behält seinen eigenen Schlüssel und sein eigenes Modell, ein Wechsel verliert also keines von beidem."
 
-#: includes/Admin/Settings.php:1381
+#: includes/Admin/Settings.php:1382
 msgid "API key"
 msgstr "API-Schlüssel"
 
-#: includes/Admin/Settings.php:1401
+#: includes/Admin/Settings.php:1402
 msgid "Test connection"
 msgstr "Verbindung testen"
 
-#: includes/Admin/Settings.php:1407
+#: includes/Admin/Settings.php:1408
 msgid "No key stored yet. Sent as a bearer token, and never written to the log."
 msgstr "Noch kein Schlüssel gespeichert. Wird als Bearer-Token gesendet und nie ins Protokoll geschrieben."
 
-#: includes/Admin/Settings.php:1408
+#: includes/Admin/Settings.php:1409
 msgid "A key is stored. Leave this field blank to keep it."
 msgstr "Ein Schlüssel ist gespeichert. Lass dieses Feld leer, um ihn zu behalten."
 
-#: includes/Admin/Settings.php:1417
+#: includes/Admin/Settings.php:1418
 msgid "Model"
 msgstr "Modell"
 
-#: includes/Admin/Settings.php:1436
+#: includes/Admin/Settings.php:1437
 msgid "Fetch models"
 msgstr "Modelle abrufen"
 
 #. translators: %s: the model id used when none is chosen.
-#: includes/Admin/Settings.php:1443
+#: includes/Admin/Settings.php:1444
 #, php-format
 msgid "Leave this on the default to follow the provider's recommendation, currently %s. A mini model is usually right: sorting a product into a fixed list of categories is classification, not reasoning."
 msgstr "Belasse es auf der Vorgabe, um der Empfehlung des Anbieters zu folgen, derzeit %s. Ein Mini-Modell ist meist richtig: ein Produkt in eine feste Liste von Kategorien einzuordnen ist Klassifikation, nicht Schlussfolgern."
 
-#: includes/Admin/Settings.php:1454
+#: includes/Admin/Settings.php:1455
 msgid "Categorisation"
 msgstr "Kategorisierung"
 
-#: includes/Admin/Settings.php:1458
+#: includes/Admin/Settings.php:1459
 msgid "Category depth"
 msgstr "Kategorietiefe"
 
-#: includes/Admin/Settings.php:1468
+#: includes/Admin/Settings.php:1469
 msgid "The deepest the proposed tree may go. It is a limit, not a target — a smaller catalogue will come back shallower."
 msgstr "Wie tief der vorgeschlagene Baum höchstens gehen darf. Eine Obergrenze, kein Ziel — ein kleinerer Katalog kommt flacher zurück."
 
-#: includes/Admin/Settings.php:1473
+#: includes/Admin/Settings.php:1474
 msgid "Your guidance"
 msgstr "Deine Vorgaben"
 
-#: includes/Admin/Settings.php:1483
+#: includes/Admin/Settings.php:1484
 msgid "How this shop thinks about its catalogue — for example \"organise by age group first, then by material\", or \"keep seasonal products together\". Sent with every request, so it shapes both the proposed tree and how products are sorted into it."
 msgstr "Wie dieser Shop über seinen Katalog denkt — zum Beispiel \"zuerst nach Altersgruppe, dann nach Material gliedern\" oder \"saisonale Produkte zusammenhalten\". Wird mit jeder Anfrage gesendet und prägt damit sowohl den vorgeschlagenen Baum als auch die Einordnung der Produkte."
 
-#: includes/Admin/Settings.php:1489
+#: includes/Admin/Settings.php:1490
 msgid "How to run it"
 msgstr "Art der Ausführung"
 
-#: includes/Admin/Settings.php:1499
+#: includes/Admin/Settings.php:1500
 msgid "Live sends the products a batch at a time and finishes in minutes. Bulk hands the whole catalogue over in one go: it costs half as much, cannot be rate-limited, and this page keeps you posted while you wait — but the answers may take up to 24 hours. Either way you can leave the page."
 msgstr "Live sendet die Produkte stapelweise und ist in Minuten fertig. Der Sammelauftrag übergibt den ganzen Katalog auf einmal: er kostet halb so viel, kann nicht gedrosselt werden, und diese Seite hält dich währenddessen auf dem Laufenden — die Antworten können aber bis zu 24 Stunden dauern. In beiden Fällen kannst du die Seite verlassen."
 
-#: includes/Admin/Settings.php:1505
+#: includes/Admin/Settings.php:1506
 msgid "Products to categorise"
 msgstr "Zu kategorisierende Produkte"
 
-#: includes/Admin/Settings.php:1518
+#: includes/Admin/Settings.php:1519
 msgid "Existing categories"
 msgstr "Vorhandene Kategorien"
 
-#: includes/Admin/Settings.php:1536
+#: includes/Admin/Settings.php:1537
 msgid "Replace the categories a product already has"
 msgstr "Kategorien ersetzen, die ein Produkt bereits hat"
 
-#: includes/Admin/Settings.php:1538
+#: includes/Admin/Settings.php:1539
 msgid "On by default. Turn this off to leave already-categorised products alone — they are then skipped without being sent to the model at all."
 msgstr "Standardmässig an. Schalte dies aus, um bereits kategorisierte Produkte unangetastet zu lassen — sie werden dann übersprungen, ohne überhaupt an das Modell gesendet zu werden."
 
-#: includes/Admin/Settings.php:1542
+#: includes/Admin/Settings.php:1543
 msgid "Dry run"
 msgstr "Testlauf"
 
-#: includes/Admin/Settings.php:1552
+#: includes/Admin/Settings.php:1553
 msgid "Report what would happen without changing anything"
 msgstr "Melden, was passieren würde, ohne etwas zu ändern"
 
-#: includes/Admin/Settings.php:1554
+#: includes/Admin/Settings.php:1555
 msgid "The run asks the model and counts the results exactly as a real run would, but writes nothing. A dry run leaves nothing to revert."
 msgstr "Der Lauf fragt das Modell und zählt die Ergebnisse genau wie ein echter Lauf, schreibt aber nichts. Nach einem Testlauf gibt es nichts rückgängig zu machen."
 
-#: includes/Admin/Settings.php:1559
+#: includes/Admin/Settings.php:1560
 msgid "Batch size"
 msgstr "Stapelgrösse"
 
-#: includes/Admin/Settings.php:1569
+#: includes/Admin/Settings.php:1570
 msgid "Larger batches make fewer requests but risk the model running out of room to answer, which costs the whole batch. 25 is a good balance."
 msgstr "Grössere Stapel brauchen weniger Anfragen, riskieren aber, dass dem Modell der Platz für die Antwort ausgeht — das kostet den ganzen Stapel. 25 ist ein guter Mittelweg."
 
@@ -677,26 +682,26 @@ msgstr "%s fehlgeschlagen"
 msgid "This provider cannot accept a whole catalogue at once. Switch back to sending the products live."
 msgstr "Dieser Anbieter kann keinen ganzen Katalog auf einmal annehmen. Stelle wieder auf Live um."
 
-#: includes/Categorize/BulkRun.php:437
+#: includes/Categorize/BulkRun.php:453
 msgid "The batch this run was waiting on is no longer there."
 msgstr "Der Sammelauftrag, auf den dieser Lauf gewartet hat, existiert nicht mehr."
 
-#: includes/Categorize/BulkRun.php:469
-#: includes/Categorize/BulkRun.php:675
+#: includes/Categorize/BulkRun.php:485
+#: includes/Categorize/BulkRun.php:691
 msgid "The batch was cancelled. No products were changed."
 msgstr "Der Sammelauftrag wurde abgebrochen. Es wurden keine Produkte geändert."
 
 #. translators: %s: the state the provider reported, for example "expired".
-#: includes/Categorize/BulkRun.php:479
+#: includes/Categorize/BulkRun.php:495
 #, php-format
 msgid "The batch did not complete (%s). No products were changed."
 msgstr "Der Sammelauftrag wurde nicht abgeschlossen (%s). Es wurden keine Produkte geändert."
 
-#: includes/Categorize/BulkRun.php:511
+#: includes/Categorize/BulkRun.php:527
 msgid "This run's working set expired before its answers could be applied. Start it again."
 msgstr "Die Arbeitsdaten dieses Laufs sind abgelaufen, bevor seine Antworten übernommen werden konnten. Starte ihn erneut."
 
-#: includes/Categorize/BulkRun.php:584
+#: includes/Categorize/BulkRun.php:600
 msgid "There is no batch to collect."
 msgstr "Es gibt keinen Sammelauftrag, dessen Ergebnisse abgeholt werden könnten."
 
@@ -710,7 +715,7 @@ msgstr "Es gibt keinen Lauf mehr zum Rückgängigmachen."
 msgid "%s products put back the way they were."
 msgstr "%s Produkte wurden wieder so hergestellt, wie sie waren."
 
-#: includes/Deactivator.php:36
+#: includes/Deactivator.php:60
 msgid "Interrupted: the plugin was deactivated while this run was in progress."
 msgstr "Unterbrochen: Das Plugin wurde deaktiviert, während dieser Lauf noch lief."
 
@@ -746,26 +751,26 @@ msgstr "Letzten Lauf rückgängig machen"
 msgid "Puts every product the last run touched back to the categories it had before."
 msgstr "Setzt alle Produkte des letzten Laufs auf die Kategorien zurück, die sie vorher hatten."
 
-#: includes/Jobs/Scheduler.php:436
+#: includes/Jobs/Scheduler.php:452
 msgid "an unknown error"
 msgstr "ein unbekannter Fehler"
 
 #. translators: %s: error message.
-#: includes/Jobs/Scheduler.php:441
+#: includes/Jobs/Scheduler.php:457
 #, php-format
 msgid "The run stopped because a background task failed: %s"
 msgstr "Der Lauf wurde gestoppt, weil eine Hintergrundaufgabe fehlgeschlagen ist: %s"
 
-#: includes/Jobs/Scheduler.php:454
+#: includes/Jobs/Scheduler.php:470
 msgid "The run stopped because a background task took too long and was abandoned."
 msgstr "Der Lauf wurde gestoppt, weil eine Hintergrundaufgabe zu lange gedauert hat und abgebrochen wurde."
 
-#: includes/Jobs/Scheduler.php:466
+#: includes/Jobs/Scheduler.php:482
 msgid "a fatal error"
 msgstr "ein schwerwiegender Fehler"
 
 #. translators: %s: error message.
-#: includes/Jobs/Scheduler.php:471
+#: includes/Jobs/Scheduler.php:487
 #, php-format
 msgid "The run stopped because a background task ended unexpectedly: %s"
 msgstr "Der Lauf wurde gestoppt, weil eine Hintergrundaufgabe unerwartet beendet wurde: %s"

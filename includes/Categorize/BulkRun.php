@@ -275,8 +275,9 @@ class BulkRun {
 			Status::progress( self::JOB, array( 'skipped_has_cats' => count( $partition['skip'] ) ) );
 		}
 
-		$requests = array();
-		$map      = array();
+		$requests  = array();
+		$map       = array();
+		$submitted = 0;
 
 		foreach ( array_chunk( $partition['ask'], $options['batch_size'] ) as $index => $slice ) {
 			/*
@@ -297,6 +298,7 @@ class BulkRun {
 
 				$products[ $ref ]          = $description;
 				$map[ $custom_id ][ $ref ] = $product_id;
+				++$submitted;
 			}
 
 			if ( empty( $products ) ) {
@@ -311,6 +313,20 @@ class BulkRun {
 				'effort'       => 'low',
 				'max_tokens'   => Assignment::MAX_TOKENS,
 			);
+		}
+
+		/*
+		 * Everything this chunk will not be hearing back about is counted off now:
+		 * the products skipped as already categorised, and any that could not be
+		 * described. Only what actually went into a request is advanced later, when
+		 * its answer is applied. Without this the bar measures a total that includes
+		 * products nothing will ever advance it past — a successful run over this
+		 * catalogue stopped at 88%.
+		 */
+		$unsent = count( $partition['skip'] ) + ( count( $partition['ask'] ) - $submitted );
+
+		if ( $unsent > 0 ) {
+			Status::advance( self::JOB, $unsent );
 		}
 
 		/*
@@ -675,6 +691,21 @@ class BulkRun {
 		Status::fail( self::JOB, __( 'The batch was cancelled. No products were changed.', 'woo-product-categorizer-ai' ) );
 
 		return true;
+	}
+
+	/**
+	 * Forget the batch on the books without asking the provider anything.
+	 *
+	 * Separate from cancel(), which deliberately keeps the record when the provider
+	 * could not be told to stop — there the batch really is still running and the
+	 * button has to remain pressable. This is for the case where nothing will ever
+	 * poll it again regardless, so a record that cannot be acted on is only in the
+	 * way.
+	 *
+	 * @return void
+	 */
+	public static function forget() {
+		delete_option( self::OPTION_KEY );
 	}
 
 	/**

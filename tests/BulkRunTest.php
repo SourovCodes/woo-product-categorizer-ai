@@ -11,6 +11,7 @@ use WooProductCategorizerAi\Admin\Settings;
 use WooProductCategorizerAi\Categorize\Applier;
 use WooProductCategorizerAi\Categorize\Assignment;
 use WooProductCategorizerAi\Categorize\BulkRun;
+use WooProductCategorizerAi\Jobs\Scheduler;
 use WooProductCategorizerAi\Jobs\Status;
 use WooProductCategorizerAi\Taxonomy\Creator;
 use WooProductCategorizerAi\Taxonomy\Draft;
@@ -682,6 +683,124 @@ class BulkRunTest extends WP_UnitTestCase {
 
 		// A provider id the registry does not know cannot support anything.
 		$this->assertFalse( Settings::uses_bulk_mode( $this->settings( array( 'provider' => 'nope' ) ) ) );
+	}
+
+	/**
+	 * The bar measures every product in scope, so everything that will never be
+	 * heard back about has to be counted off when it is set aside. A real run over
+	 * the live catalogue finished successfully at 88%.
+	 *
+	 * @return void
+	 */
+	public function test_the_progress_bar_reaches_the_end_when_products_are_skipped() {
+		$ids      = $this->make_products( 4 );
+		$existing = wp_insert_term( 'Altkategorie', 'product_cat' );
+
+		wp_set_object_terms( $ids[0], array( (int) $existing['term_id'] ), 'product_cat' );
+		wp_set_object_terms( $ids[1], array( (int) $existing['term_id'] ), 'product_cat' );
+
+		$job = $this->job( array( 'override_existing' => false ) );
+		$run = $this->submit( $job );
+
+		$custom_id = array_key_first( $this->provider->submissions[0] );
+
+		$this->provider->will_return(
+			$custom_id,
+			array(
+				'assignments' => array(
+					array(
+						'ref'         => 'p001',
+						'category_id' => $this->leaf( 'Deko' ),
+					),
+					array(
+						'ref'         => 'p002',
+						'category_id' => $this->leaf( 'Deko' ),
+					),
+				),
+			)
+		);
+
+		$this->collect( $job, $run );
+
+		$status = Status::get( Assignment::JOB );
+
+		$this->assertSame( 4, $status['total'] );
+		$this->assertSame( 4, $status['processed'], 'Skipped products still have to move the bar.' );
+		$this->assertSame( 100, Status::percentage( $status ) );
+	}
+
+	/**
+	 * A batch may sit at the provider for a full day, four times longer than a run
+	 * is allowed to look alive. Without a guard of its own the Run button comes back
+	 * after six hours, and a second press opens a second batch over the same
+	 * products — paying twice for two sets of answers that fight over what to write.
+	 *
+	 * @return void
+	 */
+	public function test_a_second_run_is_refused_while_a_batch_is_in_flight() {
+		$this->make_products( 2 );
+		$this->submit( $this->job() );
+
+		// Let the run go stale, which is all that guarded this before.
+		$all = get_option( Status::OPTION_KEY );
+
+		$all[ Assignment::JOB ]['started'] = time() - Status::STALE_AFTER - 1;
+		update_option( Status::OPTION_KEY, $all, false );
+
+		$this->assertFalse( Status::is_running( Assignment::JOB ), 'The run should read as stale.' );
+
+		$queued = Scheduler::trigger( Assignment::JOB );
+
+		$this->assertWPError( $queued );
+		$this->assertSame( 'wpcai_batch_in_flight', $queued->get_error_code() );
+	}
+
+	/**
+	 * Once the batch is gone, the job is startable again.
+	 *
+	 * @return void
+	 */
+	public function test_a_run_can_start_again_once_the_batch_is_gone() {
+		$this->make_products( 2 );
+		$job = $this->job();
+		$this->submit( $job );
+
+		$job->cancel();
+		delete_option( Status::OPTION_KEY );
+
+		$this->assertTrue( Scheduler::trigger( Assignment::JOB ) );
+	}
+
+	/**
+	 * A batch already handed over is the one thing that keeps costing money after
+	 * the plugin stops, and nothing local will poll it again.
+	 *
+	 * @return void
+	 */
+	public function test_deactivating_stops_a_batch_at_the_provider() {
+		$this->make_products( 2 );
+
+		$this->submit( $this->job() );
+
+		/*
+		 * Deactivator builds its own BulkRun, so it reaches the real OpenAI provider.
+		 * Blocked here rather than allowed to fail on its own: a test must not depend
+		 * on the network, and this one is about what happens when the cancel does not
+		 * get through.
+		 */
+		$blocked = static function () {
+			return new \WP_Error( 'http_request_failed', 'blocked in tests' );
+		};
+
+		add_filter( 'pre_http_request', $blocked );
+		update_option( Settings::OPTION_KEY, $this->settings( array( 'provider' => 'openai' ) ), false );
+
+		\WooProductCategorizerAi\Deactivator::deactivate();
+
+		remove_filter( 'pre_http_request', $blocked );
+
+		$this->assertSame( array(), BulkRun::in_flight(), 'The batch record must not survive deactivation.' );
+		$this->assertSame( 'failed', Status::get( Assignment::JOB )['state'] );
 	}
 
 	/**

@@ -4,7 +4,7 @@
  * Plugin URI:           https://github.com/SourovCodes/woo-product-categorizer-ai
  * Update URI:           https://github.com/SourovCodes/woo-product-categorizer-ai
  * Description:          Categorises WooCommerce products with an LLM: proposes a category tree, lets you review it, then assigns the whole catalogue.
- * Version:              0.1.0
+ * Version:              0.2.0
  * Requires at least:    7.0
  * Requires PHP:         8.2
  * Requires Plugins:     woocommerce
@@ -23,7 +23,7 @@ namespace WooProductCategorizerAi;
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WPCAI_VERSION', '0.1.0' );
+define( 'WPCAI_VERSION', '0.2.0' );
 define( 'WPCAI_PLUGIN_FILE', __FILE__ );
 define( 'WPCAI_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WPCAI_PLUGIN_URL', plugin_dir_url( __FILE__ ) );

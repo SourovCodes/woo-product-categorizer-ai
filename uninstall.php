@@ -22,8 +22,22 @@ delete_option( 'woo_product_categorizer_ai_job_status' );
 delete_option( 'woo_product_categorizer_ai_taxonomy_draft' );
 delete_option( 'woo_product_categorizer_ai_taxonomy_draft_previous' );
 delete_option( 'woo_product_categorizer_ai_last_apply' );
+delete_option( 'woo_product_categorizer_ai_batch' );
 
-// Drop the working set of any run interrupted part way through.
+/*
+ * Drop the working set of any run interrupted part way through. delete_expired_transients()
+ * only takes the ones that have already lapsed, and a bulk run's survive for 36 hours —
+ * long enough that uninstalling mid-run would leave megabytes of catalogue behind — so
+ * they are removed by name as well.
+ */
+global $wpdb;
+
+$wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery -- removing our own transients by prefix on uninstall; there is no API for a prefix delete.
+	"DELETE FROM {$wpdb->options}
+	 WHERE option_name LIKE '\_transient\_wpcai\_%'
+	    OR option_name LIKE '\_transient\_timeout\_wpcai\_%'"
+);
+
 delete_expired_transients();
 
 /*

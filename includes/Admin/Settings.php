@@ -1223,6 +1223,7 @@ class Settings {
 			'batch_cancelled'         => __( 'Batch cancelled. Nothing was written to your products.', 'woo-product-categorizer-ai' ),
 			'wpcai_nothing_in_flight' => __( 'There is no batch waiting to be cancelled.', 'woo-product-categorizer-ai' ),
 			'wpcai_no_batch_support'  => __( 'This provider cannot accept a whole catalogue at once.', 'woo-product-categorizer-ai' ),
+			'wpcai_batch_in_flight'   => __( 'A batch for this job is still with the provider. Wait for it, or cancel it first.', 'woo-product-categorizer-ai' ),
 		);
 	}
 
