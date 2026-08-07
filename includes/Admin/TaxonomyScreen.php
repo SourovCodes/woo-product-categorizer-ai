@@ -7,6 +7,7 @@
 
 namespace WooProductCategorizerAi\Admin;
 
+use WooProductCategorizerAi\Taxonomy\Creator;
 use WooProductCategorizerAi\Taxonomy\Draft;
 
 defined( 'ABSPATH' ) || exit;
@@ -31,6 +32,7 @@ class TaxonomyScreen {
 	 */
 	public function register() {
 		add_action( 'admin_post_wpcai_save_draft', array( $this, 'handle_save' ) );
+		add_action( 'admin_post_wpcai_create_terms', array( $this, 'handle_create' ) );
 		add_action( 'admin_post_wpcai_discard_draft', array( $this, 'handle_discard' ) );
 		add_action( 'admin_post_wpcai_restore_draft', array( $this, 'handle_restore' ) );
 	}
@@ -61,6 +63,38 @@ class TaxonomyScreen {
 		Draft::save( $result['draft'] );
 
 		$this->redirect( 'draft_saved', $result['counts'] );
+	}
+
+	/**
+	 * Turn the approved draft into real categories.
+	 *
+	 * @return void
+	 */
+	public function handle_create() {
+		$this->authorise( 'wpcai_create_terms' );
+
+		$draft = Draft::get();
+
+		if ( empty( $draft['nodes'] ) ) {
+			$this->redirect( 'no_draft' );
+		}
+
+		/*
+		 * Term counting is deferred around the whole creation. Every wp_insert_term()
+		 * on a hierarchical taxonomy walks the ancestors to recount them, and a tree of
+		 * any size therefore spends most of its time recounting categories that are all
+		 * still empty.
+		 */
+		wp_defer_term_counting( true );
+
+		$result = Creator::create_from_draft( $draft );
+
+		wp_defer_term_counting( false );
+
+		$draft['created'] = time();
+		Draft::save( $draft );
+
+		$this->redirect( 'terms_created', $result['counts'] );
 	}
 
 	/**
@@ -326,6 +360,24 @@ class TaxonomyScreen {
 			</p>
 		</form>
 
+		<form action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" method="post" class="wpcai-inline-form">
+			<?php wp_nonce_field( 'wpcai_create_terms' ); ?>
+			<input type="hidden" name="action" value="wpcai_create_terms" />
+			<button type="submit" class="button button-primary">
+				<?php echo esc_html__( 'Create categories', 'woo-product-categorizer-ai' ); ?>
+			</button>
+			<span class="description">
+				<?php
+				echo esc_html(
+					empty( $draft['created'] )
+						? __( 'Creates these categories in your shop. Products are not touched — that is the next step.', 'woo-product-categorizer-ai' )
+						: __( 'Already created once. Pressing this again applies your edits; categories that have not changed are left alone.', 'woo-product-categorizer-ai' )
+				);
+				?>
+			</span>
+		</form>
+
+		<?php $this->render_orphan_notice( $draft ); ?>
 		<?php $this->render_restore_form(); ?>
 
 		<form action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" method="post" class="wpcai-inline-form">
@@ -335,6 +387,50 @@ class TaxonomyScreen {
 				<?php echo esc_html__( 'Discard this draft', 'woo-product-categorizer-ai' ); ?>
 			</button>
 		</form>
+		<?php
+	}
+
+	/**
+	 * Point out categories this plugin created that the draft no longer describes.
+	 *
+	 * Reported rather than deleted, and the wording says so. They may hold products,
+	 * be linked from a menu, or simply be wanted; deciding that is a person's job,
+	 * not a side effect of pressing Create.
+	 *
+	 * @param array $draft The draft.
+	 * @return void
+	 */
+	protected function render_orphan_notice( array $draft ) {
+		if ( empty( $draft['created'] ) ) {
+			return;
+		}
+
+		$orphans = Creator::orphans( $draft );
+
+		if ( empty( $orphans ) ) {
+			return;
+		}
+
+		?>
+		<p class="description">
+			<?php
+			echo esc_html(
+				sprintf(
+					/* translators: %d: number of categories no longer in the draft. */
+					_n(
+						'%d category created earlier is not in this draft. It has been left alone — it may hold products or be linked from a menu.',
+						'%d categories created earlier are not in this draft. They have been left alone — they may hold products or be linked from a menu.',
+						count( $orphans ),
+						'woo-product-categorizer-ai'
+					),
+					count( $orphans )
+				)
+			);
+			?>
+			<a href="<?php echo esc_url( admin_url( 'edit-tags.php?taxonomy=product_cat&post_type=product' ) ); ?>">
+				<?php echo esc_html__( 'Review your product categories', 'woo-product-categorizer-ai' ); ?>
+			</a>
+		</p>
 		<?php
 	}
 

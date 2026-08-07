@@ -806,7 +806,7 @@ class Settings {
 			return;
 		}
 
-		$good  = in_array( $notice, array( 'queued', 'draft_saved', 'draft_discarded', 'draft_restored' ), true );
+		$good  = in_array( $notice, array( 'queued', 'draft_saved', 'draft_discarded', 'draft_restored', 'terms_created' ), true );
 		$parts = array();
 
 		foreach ( $this->notice_counts() as $argument => $templates ) {
@@ -846,6 +846,7 @@ class Settings {
 			'wpcai_unknown_job'     => __( 'That job does not exist.', 'woo-product-categorizer-ai' ),
 			'wpcai_no_scheduler'    => __( 'Action Scheduler is not available, so background jobs cannot run.', 'woo-product-categorizer-ai' ),
 			'draft_saved'           => __( 'Draft saved.', 'woo-product-categorizer-ai' ),
+			'terms_created'         => __( 'Categories created.', 'woo-product-categorizer-ai' ),
 			'draft_discarded'       => __( 'Draft discarded. Nothing in your shop changed.', 'woo-product-categorizer-ai' ),
 			'draft_restored'        => __( 'Your edited draft is back.', 'woo-product-categorizer-ai' ),
 			'no_draft'              => __( 'There is no draft to edit. Propose a category tree first.', 'woo-product-categorizer-ai' ),
@@ -864,29 +865,53 @@ class Settings {
 	 */
 	protected function notice_counts() {
 		return array(
-			'wpcai_renamed'  => array(
+			'wpcai_renamed'   => array(
 				/* translators: %s: number of categories renamed. */
 				'one'  => __( '%s renamed', 'woo-product-categorizer-ai' ),
 				/* translators: %s: number of categories renamed. */
 				'many' => __( '%s renamed', 'woo-product-categorizer-ai' ),
 			),
-			'wpcai_removed'  => array(
+			'wpcai_removed'   => array(
 				/* translators: %s: number of categories removed. */
 				'one'  => __( '%s removed', 'woo-product-categorizer-ai' ),
 				/* translators: %s: number of categories removed. */
 				'many' => __( '%s removed', 'woo-product-categorizer-ai' ),
 			),
-			'wpcai_added'    => array(
+			'wpcai_added'     => array(
 				/* translators: %s: number of categories added. */
 				'one'  => __( '%s added', 'woo-product-categorizer-ai' ),
 				/* translators: %s: number of categories added. */
 				'many' => __( '%s added', 'woo-product-categorizer-ai' ),
 			),
-			'wpcai_rejected' => array(
+			'wpcai_rejected'  => array(
 				/* translators: %s: number of lines that were too deep. */
 				'one'  => __( '%s line was too deep to add', 'woo-product-categorizer-ai' ),
 				/* translators: %s: number of lines that were too deep. */
 				'many' => __( '%s lines were too deep to add', 'woo-product-categorizer-ai' ),
+			),
+			'wpcai_created'   => array(
+				/* translators: %s: number of categories created. */
+				'one'  => __( '%s created', 'woo-product-categorizer-ai' ),
+				/* translators: %s: number of categories created. */
+				'many' => __( '%s created', 'woo-product-categorizer-ai' ),
+			),
+			'wpcai_adopted'   => array(
+				/* translators: %s: number of existing categories taken over. */
+				'one'  => __( '%s already existed and is now managed here', 'woo-product-categorizer-ai' ),
+				/* translators: %s: number of existing categories taken over. */
+				'many' => __( '%s already existed and are now managed here', 'woo-product-categorizer-ai' ),
+			),
+			'wpcai_unchanged' => array(
+				/* translators: %s: number of categories left untouched. */
+				'one'  => __( '%s unchanged', 'woo-product-categorizer-ai' ),
+				/* translators: %s: number of categories left untouched. */
+				'many' => __( '%s unchanged', 'woo-product-categorizer-ai' ),
+			),
+			'wpcai_failed'    => array(
+				/* translators: %s: number of categories that could not be created. */
+				'one'  => __( '%s could not be created', 'woo-product-categorizer-ai' ),
+				/* translators: %s: number of categories that could not be created. */
+				'many' => __( '%s could not be created', 'woo-product-categorizer-ai' ),
 			),
 		);
 	}
