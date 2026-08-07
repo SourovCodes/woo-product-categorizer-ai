@@ -7,6 +7,7 @@
 
 namespace WooProductCategorizerAi\Admin;
 
+use WooProductCategorizerAi\Categorize\Revert;
 use WooProductCategorizerAi\Jobs\Preflight;
 use WooProductCategorizerAi\Jobs\Scheduler;
 use WooProductCategorizerAi\Jobs\Status;
@@ -182,6 +183,7 @@ class Settings {
 		add_action( 'wp_ajax_wpcai_fetch_models', array( $this, 'handle_fetch_models' ) );
 		add_action( 'wp_ajax_wpcai_job_progress', array( $this, 'handle_job_progress' ) );
 		add_action( 'admin_post_wpcai_run_job', array( $this, 'handle_run_job' ) );
+		add_action( 'admin_post_wpcai_forget_revert', array( $this, 'handle_forget_revert' ) );
 
 		/*
 		 * A saved key or a switched provider invalidates whatever the last connection
@@ -658,6 +660,9 @@ class Settings {
 			</thead>
 			<tbody>
 				<?php foreach ( Scheduler::get_jobs() as $key => $job ) : ?>
+					<?php if ( ! empty( $job['hidden'] ) ) : ?>
+						<?php continue; ?>
+					<?php endif; ?>
 					<?php
 					$status  = Status::get( $key );
 					$running = Status::is_running( $key );
@@ -700,6 +705,101 @@ class Settings {
 			</tbody>
 		</table>
 		<?php
+	}
+
+	/**
+	 * Offer to undo the last run, when there is one to undo.
+	 *
+	 * The button is absent rather than disabled when there is nothing to revert, and
+	 * it names what it will undo rather than offering an unqualified "undo" — the
+	 * difference between a safety net and a second irreversible action.
+	 *
+	 * @return void
+	 */
+	protected function render_revert_section() {
+		$last = Revert::last_apply();
+
+		if ( empty( $last ) ) {
+			return;
+		}
+
+		$running = Status::is_running( 'revert' );
+		$status  = Status::get( 'revert' );
+
+		?>
+		<h2><?php echo esc_html__( 'Undo', 'woo-product-categorizer-ai' ); ?></h2>
+
+		<p class="wpcai-job-summary" data-wpcai-job="revert">
+			<?php echo esc_html( 'never' === $status['state'] ? '' : $this->describe_status( $status ) ); ?>
+		</p>
+
+		<form action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" method="post" class="wpcai-inline-form">
+			<input type="hidden" name="action" value="wpcai_run_job" />
+			<input type="hidden" name="job" value="revert" />
+			<?php wp_nonce_field( 'wpcai_run_job_revert' ); ?>
+			<button
+				type="submit"
+				class="button"
+				<?php disabled( $running ); ?>
+				data-wpcai-confirm="<?php echo esc_attr__( 'Put every product this run touched back to the categories it had before? Nothing else changes.', 'woo-product-categorizer-ai' ); ?>"
+			>
+				<?php
+				echo esc_html(
+					sprintf(
+						/* translators: 1: number of products. 2: date the run finished. */
+						__( 'Revert the run of %2$s (%1$s products)', 'woo-product-categorizer-ai' ),
+						number_format_i18n( (int) $last['products'] ),
+						wp_date( get_option( 'date_format' ), (int) $last['finished'] )
+					)
+				);
+				?>
+			</button>
+		</form>
+
+		<form action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" method="post" class="wpcai-inline-form">
+			<input type="hidden" name="action" value="wpcai_forget_revert" />
+			<?php wp_nonce_field( 'wpcai_forget_revert' ); ?>
+			<button
+				type="submit"
+				class="button-link"
+				data-wpcai-confirm="<?php echo esc_attr__( 'Forget what the categories were before the last run? The categories themselves stay exactly as they are, but the run can no longer be undone.', 'woo-product-categorizer-ai' ); ?>"
+			>
+				<?php echo esc_html__( 'Forget revert history', 'woo-product-categorizer-ai' ); ?>
+			</button>
+		</form>
+
+		<p class="description">
+			<?php echo esc_html__( 'Each product remembers the categories it had before the last run. Keeping that costs a little database space; forgetting it frees the space and gives up the undo.', 'woo-product-categorizer-ai' ); ?>
+		</p>
+		<?php
+	}
+
+	/**
+	 * Drop the stashes without restoring anything.
+	 *
+	 * @return void
+	 */
+	public function handle_forget_revert() {
+		if ( ! current_user_can( self::CAPABILITY ) ) {
+			wp_die( esc_html__( 'You do not have permission to do that.', 'woo-product-categorizer-ai' ) );
+		}
+
+		check_admin_referer( 'wpcai_forget_revert' );
+
+		$forgotten = Revert::forget();
+
+		wp_safe_redirect(
+			add_query_arg(
+				array(
+					'page'          => self::PAGE_SLUG,
+					'wpcai_notice'  => 'revert_forgotten',
+					'wpcai_cleared' => (int) $forgotten,
+				),
+				admin_url( 'admin.php' )
+			)
+		);
+
+		exit;
 	}
 
 	/**
@@ -856,16 +956,18 @@ class Settings {
 	 */
 	protected function notice_messages() {
 		return array(
-			'queued'                => __( 'Queued. It will start within a minute, and this page will update as it goes.', 'woo-product-categorizer-ai' ),
-			'wpcai_already_running' => __( 'That job is already running.', 'woo-product-categorizer-ai' ),
-			'wpcai_unknown_job'     => __( 'That job does not exist.', 'woo-product-categorizer-ai' ),
-			'wpcai_no_scheduler'    => __( 'Action Scheduler is not available, so background jobs cannot run.', 'woo-product-categorizer-ai' ),
-			'draft_saved'           => __( 'Draft saved.', 'woo-product-categorizer-ai' ),
-			'terms_created'         => __( 'Categories created.', 'woo-product-categorizer-ai' ),
-			'draft_discarded'       => __( 'Draft discarded. Nothing in your shop changed.', 'woo-product-categorizer-ai' ),
-			'draft_restored'        => __( 'Your edited draft is back.', 'woo-product-categorizer-ai' ),
-			'no_draft'              => __( 'There is no draft to edit. Propose a category tree first.', 'woo-product-categorizer-ai' ),
-			'no_backup'             => __( 'There is no previous draft to restore.', 'woo-product-categorizer-ai' ),
+			'queued'                  => __( 'Queued. It will start within a minute, and this page will update as it goes.', 'woo-product-categorizer-ai' ),
+			'wpcai_already_running'   => __( 'That job is already running.', 'woo-product-categorizer-ai' ),
+			'wpcai_unknown_job'       => __( 'That job does not exist.', 'woo-product-categorizer-ai' ),
+			'wpcai_no_scheduler'      => __( 'Action Scheduler is not available, so background jobs cannot run.', 'woo-product-categorizer-ai' ),
+			'draft_saved'             => __( 'Draft saved.', 'woo-product-categorizer-ai' ),
+			'terms_created'           => __( 'Categories created.', 'woo-product-categorizer-ai' ),
+			'draft_discarded'         => __( 'Draft discarded. Nothing in your shop changed.', 'woo-product-categorizer-ai' ),
+			'draft_restored'          => __( 'Your edited draft is back.', 'woo-product-categorizer-ai' ),
+			'no_draft'                => __( 'There is no draft to edit. Propose a category tree first.', 'woo-product-categorizer-ai' ),
+			'no_backup'               => __( 'There is no previous draft to restore.', 'woo-product-categorizer-ai' ),
+			'revert_forgotten'        => __( 'Undo history cleared. Your categories are unchanged; the last run can no longer be reverted.', 'woo-product-categorizer-ai' ),
+			'wpcai_nothing_to_revert' => __( 'There is no completed run to undo.', 'woo-product-categorizer-ai' ),
 		);
 	}
 
@@ -927,6 +1029,12 @@ class Settings {
 				'one'  => __( '%s could not be created', 'woo-product-categorizer-ai' ),
 				/* translators: %s: number of categories that could not be created. */
 				'many' => __( '%s could not be created', 'woo-product-categorizer-ai' ),
+			),
+			'wpcai_cleared'   => array(
+				/* translators: %s: number of products whose undo history was cleared. */
+				'one'  => __( '%s product cleared', 'woo-product-categorizer-ai' ),
+				/* translators: %s: number of products whose undo history was cleared. */
+				'many' => __( '%s products cleared', 'woo-product-categorizer-ai' ),
 			),
 		);
 	}
@@ -1195,6 +1303,7 @@ class Settings {
 
 			<?php ( new TaxonomyScreen() )->render(); ?>
 			<?php $this->render_jobs_table(); ?>
+			<?php $this->render_revert_section(); ?>
 		</div>
 		<?php
 	}

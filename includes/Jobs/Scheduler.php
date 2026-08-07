@@ -9,6 +9,7 @@ namespace WooProductCategorizerAi\Jobs;
 
 use Exception;
 use WooProductCategorizerAi\Categorize\Assignment;
+use WooProductCategorizerAi\Categorize\Revert;
 use WooProductCategorizerAi\Taxonomy\Proposal;
 
 defined( 'ABSPATH' ) || exit;
@@ -135,6 +136,9 @@ class Scheduler {
 		add_action( self::ACTION_ASSIGN, array( $this, 'handle_assign' ) );
 		add_action( self::ACTION_ASSIGN_BATCH, array( $this, 'handle_assign_batch' ), 10, 2 );
 		add_action( self::ACTION_ASSIGN_FINALISE, array( $this, 'handle_assign_finalise' ), 10, 1 );
+		add_action( self::ACTION_REVERT, array( $this, 'handle_revert' ) );
+		add_action( self::ACTION_REVERT_BATCH, array( $this, 'handle_revert_batch' ), 10, 2 );
+		add_action( self::ACTION_REVERT_FINALISE, array( $this, 'handle_revert_finalise' ), 10, 1 );
 
 		/*
 		 * A dead chain cannot report its own failure: the action that would have
@@ -153,7 +157,11 @@ class Scheduler {
 	 * One registry, iterated by the jobs table, the run handler and the progress
 	 * poll alike, so a job cannot appear in one and be missing from another.
 	 *
-	 * @return array Job key => label, description and starting action.
+	 * The revert is marked hidden: it is started the same way as the others and has
+	 * to be here for trigger() to accept it, but it belongs beside the thing it
+	 * undoes rather than in a list of things to start.
+	 *
+	 * @return array Job key => label, description, starting action and visibility.
 	 */
 	public static function get_jobs() {
 		return array(
@@ -166,6 +174,12 @@ class Scheduler {
 				'label'       => __( 'Categorise the catalogue', 'woo-product-categorizer-ai' ),
 				'description' => __( 'Files every product in scope under the category that fits it best. Uses the settings above as they are saved when the run starts.', 'woo-product-categorizer-ai' ),
 				'action'      => self::ACTION_ASSIGN,
+			),
+			'revert'   => array(
+				'label'       => __( 'Undo the last run', 'woo-product-categorizer-ai' ),
+				'description' => __( 'Puts every product the last run touched back to the categories it had before.', 'woo-product-categorizer-ai' ),
+				'action'      => self::ACTION_REVERT,
+				'hidden'      => true,
 			),
 		);
 	}
@@ -273,6 +287,40 @@ class Scheduler {
 	 */
 	public function handle_assign_finalise( $run = 0 ) {
 		( new Assignment() )->finalise( (int) $run );
+	}
+
+	/**
+	 * Start a revert.
+	 *
+	 * @return void
+	 */
+	public function handle_revert() {
+		( new Revert() )->start();
+	}
+
+	/**
+	 * Restore one batch of products.
+	 *
+	 * @param int $after_id Continue after this product id.
+	 * @param int $run      The run this action belongs to.
+	 * @return void
+	 */
+	public function handle_revert_batch( $after_id = 0, $run = 0 ) {
+		wp_defer_term_counting( true );
+
+		( new Revert() )->batch( (int) $after_id, (int) $run );
+
+		wp_defer_term_counting( false );
+	}
+
+	/**
+	 * Close out a revert.
+	 *
+	 * @param int $run The run this action belongs to.
+	 * @return void
+	 */
+	public function handle_revert_finalise( $run = 0 ) {
+		( new Revert() )->finalise( (int) $run );
 	}
 
 	/**
