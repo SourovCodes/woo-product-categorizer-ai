@@ -1,0 +1,728 @@
+# Copyright (C) 2026 Sourov Biswas
+# This file is distributed under the GPL-2.0-or-later.
+msgid ""
+msgstr ""
+"Project-Id-Version: Woo Product Categorizer AI 0.1.0\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/woo-product-categorizer-ai\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2026-08-07T20:45:31+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Generator: WP-CLI 2.12.0\n"
+"X-Domain: woo-product-categorizer-ai\n"
+"Language: de_DE\n"
+
+#. Plugin Name of the plugin
+#: woo-product-categorizer-ai.php
+msgid "Woo Product Categorizer AI"
+msgstr ""
+
+#. Plugin URI of the plugin
+#: woo-product-categorizer-ai.php
+msgid "https://github.com/SourovCodes/woo-product-categorizer-ai"
+msgstr ""
+
+#. Description of the plugin
+#: woo-product-categorizer-ai.php
+msgid "Categorises WooCommerce products with an LLM: proposes a category tree, lets you review it, then assigns the whole catalogue."
+msgstr "Kategorisiert WooCommerce-Produkte mit einem Sprachmodell: schlägt einen Kategoriebaum vor, lässt ihn prüfen und ordnet dann den ganzen Katalog ein."
+
+#. Author of the plugin
+#: woo-product-categorizer-ai.php
+msgid "Sourov Biswas"
+msgstr ""
+
+#: includes/Admin/Settings.php:133
+msgid "2 levels — top level and one below"
+msgstr "2 Ebenen — oberste Ebene und eine darunter"
+
+#: includes/Admin/Settings.php:134
+msgid "3 levels (recommended)"
+msgstr "3 Ebenen (empfohlen)"
+
+#: includes/Admin/Settings.php:135
+msgid "4 levels — only for a very large catalogue"
+msgstr "4 Ebenen — nur für einen sehr grossen Katalog"
+
+#: includes/Admin/Settings.php:146
+msgid "Published products only"
+msgstr "Nur veröffentlichte Produkte"
+
+#: includes/Admin/Settings.php:147
+msgid "Published and draft products"
+msgstr "Veröffentlichte Produkte und Entwürfe"
+
+#: includes/Admin/Settings.php:158
+msgid "10 products per request"
+msgstr "10 Produkte pro Anfrage"
+
+#: includes/Admin/Settings.php:159
+msgid "25 products per request (recommended)"
+msgstr "25 Produkte pro Anfrage (empfohlen)"
+
+#: includes/Admin/Settings.php:160
+msgid "50 products per request"
+msgstr "50 Produkte pro Anfrage"
+
+#: includes/Admin/Settings.php:221
+#: includes/Admin/Settings.php:1099
+msgid "Product Categorizer AI"
+msgstr "Produkt-Kategorisierung mit KI"
+
+#: includes/Admin/Settings.php:222
+msgid "Categorizer AI"
+msgstr "Kategorisierung KI"
+
+#: includes/Admin/Settings.php:501
+msgid "Testing the connection…"
+msgstr "Verbindung wird getestet…"
+
+#: includes/Admin/Settings.php:502
+msgid "The connection test could not be completed."
+msgstr "Der Verbindungstest konnte nicht abgeschlossen werden."
+
+#: includes/Admin/Settings.php:503
+#: includes/Admin/Settings.php:538
+msgid "Connected. The key works."
+msgstr "Verbunden. Der Schlüssel funktioniert."
+
+#: includes/Admin/Settings.php:504
+msgid "Fetching the models your account can use…"
+msgstr "Modelle deines Kontos werden abgerufen…"
+
+#: includes/Admin/Settings.php:505
+msgid "The model list could not be fetched."
+msgstr "Die Modellliste konnte nicht abgerufen werden."
+
+#: includes/Admin/Settings.php:506
+msgid "Models loaded. Choose one, then save the settings."
+msgstr "Modelle geladen. Wähle eines aus und speichere die Einstellungen."
+
+#: includes/Admin/Settings.php:507
+msgid "Recommended"
+msgstr "Empfohlen"
+
+#: includes/Admin/Settings.php:508
+msgid "Other models on your account"
+msgstr "Weitere Modelle deines Kontos"
+
+#: includes/Admin/Settings.php:509
+#: includes/Admin/Settings.php:1165
+msgid "— Use the recommended model —"
+msgstr "— Empfohlenes Modell verwenden —"
+
+#: includes/Admin/Settings.php:523
+#: includes/Admin/Settings.php:550
+#: includes/Admin/Settings.php:587
+#: includes/Admin/Settings.php:625
+#: includes/Admin/Settings.php:784
+#: includes/Admin/TaxonomyScreen.php:132
+msgid "You do not have permission to do that."
+msgstr "Du hast keine Berechtigung dafür."
+
+#: includes/Admin/Settings.php:652
+msgid "Jobs"
+msgstr "Aufgaben"
+
+#: includes/Admin/Settings.php:656
+msgid "Job"
+msgstr "Aufgabe"
+
+#: includes/Admin/Settings.php:657
+msgid "Last run"
+msgstr "Letzter Lauf"
+
+#: includes/Admin/Settings.php:658
+msgid "Run"
+msgstr "Starten"
+
+#: includes/Admin/Settings.php:699
+msgid "Run now"
+msgstr "Jetzt starten"
+
+#: includes/Admin/Settings.php:730
+msgid "Undo"
+msgstr "Rückgängig"
+
+#: includes/Admin/Settings.php:744
+msgid "Put every product this run touched back to the categories it had before? Nothing else changes."
+msgstr "Alle Produkte dieses Laufs auf ihre vorherigen Kategorien zurücksetzen? Sonst ändert sich nichts."
+
+#. translators: 1: number of products. 2: date the run finished.
+#: includes/Admin/Settings.php:750
+#, php-format
+msgid "Revert the run of %2$s (%1$s products)"
+msgstr "Lauf vom %2$s rückgängig machen (%1$s Produkte)"
+
+#: includes/Admin/Settings.php:765
+msgid "Forget what the categories were before the last run? The categories themselves stay exactly as they are, but the run can no longer be undone."
+msgstr "Vergessen, welche Kategorien vor dem letzten Lauf gesetzt waren? Die Kategorien selbst bleiben unverändert, der Lauf lässt sich danach aber nicht mehr rückgängig machen."
+
+#: includes/Admin/Settings.php:767
+msgid "Forget revert history"
+msgstr "Verlauf zum Rückgängigmachen löschen"
+
+#: includes/Admin/Settings.php:772
+msgid "Each product remembers the categories it had before the last run. Keeping that costs a little database space; forgetting it frees the space and gives up the undo."
+msgstr "Jedes Produkt merkt sich die Kategorien, die es vor dem letzten Lauf hatte. Das kostet etwas Platz in der Datenbank; wird es gelöscht, ist der Platz frei und der Lauf nicht mehr umkehrbar."
+
+#: includes/Admin/Settings.php:813
+msgid "Never run."
+msgstr "Noch nie gelaufen."
+
+#: includes/Admin/Settings.php:817
+msgid "Running now."
+msgstr "Läuft gerade."
+
+#. translators: %s: date and time the run finished.
+#: includes/Admin/Settings.php:827
+#, php-format
+msgid "Succeeded at %s."
+msgstr "Erfolgreich am %s."
+
+#. translators: %s: date and time the run failed.
+#: includes/Admin/Settings.php:829
+#, php-format
+msgid "Failed at %s."
+msgstr "Fehlgeschlagen am %s."
+
+#: includes/Admin/Settings.php:848
+msgid "Working…"
+msgstr "Wird bearbeitet…"
+
+#. translators: 1: records handled so far. 2: records in total.
+#: includes/Admin/Settings.php:853
+#, php-format
+msgid "%1$s of %2$s."
+msgstr "%1$s von %2$s."
+
+#. translators: 1: input tokens used. 2: output tokens used.
+#: includes/Admin/Settings.php:889
+#, php-format
+msgid "%1$s input tokens, %2$s output."
+msgstr "%1$s Eingabe-Token, %2$s Ausgabe."
+
+#. translators: %d: percentage of input tokens served from the provider's cache.
+#: includes/Admin/Settings.php:897
+#, php-format
+msgid "%d%% of the input was served from cache."
+msgstr "%d%% der Eingabe kamen aus dem Cache."
+
+#: includes/Admin/Settings.php:959
+msgid "Queued. It will start within a minute, and this page will update as it goes."
+msgstr "Eingereiht. Der Lauf startet innerhalb einer Minute, und diese Seite aktualisiert sich dabei laufend."
+
+#: includes/Admin/Settings.php:960
+#: includes/Jobs/Scheduler.php:205
+msgid "That job is already running."
+msgstr "Diese Aufgabe läuft bereits."
+
+#: includes/Admin/Settings.php:961
+#: includes/Jobs/Scheduler.php:197
+msgid "That job does not exist."
+msgstr "Diese Aufgabe gibt es nicht."
+
+#: includes/Admin/Settings.php:962
+#: includes/Jobs/Scheduler.php:201
+msgid "Action Scheduler is not available, so background jobs cannot run."
+msgstr "Action Scheduler ist nicht verfügbar, daher können keine Hintergrundaufgaben laufen."
+
+#: includes/Admin/Settings.php:963
+msgid "Draft saved."
+msgstr "Entwurf gespeichert."
+
+#: includes/Admin/Settings.php:964
+msgid "Categories created."
+msgstr "Kategorien angelegt."
+
+#: includes/Admin/Settings.php:965
+msgid "Draft discarded. Nothing in your shop changed."
+msgstr "Entwurf verworfen. In deinem Shop hat sich nichts geändert."
+
+#: includes/Admin/Settings.php:966
+msgid "Your edited draft is back."
+msgstr "Dein bearbeiteter Entwurf ist wieder da."
+
+#: includes/Admin/Settings.php:967
+msgid "There is no draft to edit. Propose a category tree first."
+msgstr "Es gibt keinen Entwurf zum Bearbeiten. Schlage zuerst einen Kategoriebaum vor."
+
+#: includes/Admin/Settings.php:968
+msgid "There is no previous draft to restore."
+msgstr "Es gibt keinen früheren Entwurf zum Wiederherstellen."
+
+#: includes/Admin/Settings.php:969
+msgid "Undo history cleared. Your categories are unchanged; the last run can no longer be reverted."
+msgstr "Verlauf gelöscht. Deine Kategorien bleiben unverändert; der letzte Lauf lässt sich nicht mehr rückgängig machen."
+
+#: includes/Admin/Settings.php:970
+#: includes/Jobs/Preflight.php:146
+msgid "There is no completed run to undo."
+msgstr "Es gibt keinen abgeschlossenen Lauf zum Rückgängigmachen."
+
+#. translators: %s: number of categories renamed.
+#: includes/Admin/Settings.php:987
+#: includes/Admin/Settings.php:989
+#, php-format
+msgid "%s renamed"
+msgstr "%s umbenannt"
+
+#. translators: %s: number of categories removed.
+#: includes/Admin/Settings.php:993
+#: includes/Admin/Settings.php:995
+#, php-format
+msgid "%s removed"
+msgstr "%s entfernt"
+
+#. translators: %s: number of categories added.
+#: includes/Admin/Settings.php:999
+#: includes/Admin/Settings.php:1001
+#, php-format
+msgid "%s added"
+msgstr "%s hinzugefügt"
+
+#. translators: %s: number of lines that were too deep.
+#: includes/Admin/Settings.php:1005
+#, php-format
+msgid "%s line was too deep to add"
+msgstr "%s Zeile war zu tief verschachtelt"
+
+#. translators: %s: number of lines that were too deep.
+#: includes/Admin/Settings.php:1007
+#, php-format
+msgid "%s lines were too deep to add"
+msgstr "%s Zeilen waren zu tief verschachtelt"
+
+#. translators: %s: number of categories created.
+#: includes/Admin/Settings.php:1011
+#: includes/Admin/Settings.php:1013
+#, php-format
+msgid "%s created"
+msgstr "%s angelegt"
+
+#. translators: %s: number of existing categories taken over.
+#: includes/Admin/Settings.php:1017
+#, php-format
+msgid "%s already existed and is now managed here"
+msgstr "%s gab es bereits und wird jetzt hier verwaltet"
+
+#. translators: %s: number of existing categories taken over.
+#: includes/Admin/Settings.php:1019
+#, php-format
+msgid "%s already existed and are now managed here"
+msgstr "%s gab es bereits und werden jetzt hier verwaltet"
+
+#. translators: %s: number of categories left untouched.
+#: includes/Admin/Settings.php:1023
+#: includes/Admin/Settings.php:1025
+#, php-format
+msgid "%s unchanged"
+msgstr "%s unverändert"
+
+#. translators: %s: number of categories that could not be created.
+#: includes/Admin/Settings.php:1029
+#: includes/Admin/Settings.php:1031
+#, php-format
+msgid "%s could not be created"
+msgstr "%s konnte nicht angelegt werden"
+
+#. translators: %s: number of products whose undo history was cleared.
+#: includes/Admin/Settings.php:1035
+#, php-format
+msgid "%s product cleared"
+msgstr "%s Produkt bereinigt"
+
+#. translators: %s: number of products whose undo history was cleared.
+#: includes/Admin/Settings.php:1037
+#, php-format
+msgid "%s products cleared"
+msgstr "%s Produkte bereinigt"
+
+#: includes/Admin/Settings.php:1084
+msgid "You do not have permission to manage these settings."
+msgstr "Du hast keine Berechtigung, diese Einstellungen zu verwalten."
+
+#: includes/Admin/Settings.php:1106
+msgid "AI provider"
+msgstr "KI-Anbieter"
+
+#: includes/Admin/Settings.php:1110
+msgid "Provider"
+msgstr "Anbieter"
+
+#: includes/Admin/Settings.php:1120
+msgid "Each provider keeps its own key and model, so switching between them does not lose either."
+msgstr "Jeder Anbieter behält seinen eigenen Schlüssel und sein eigenes Modell, ein Wechsel verliert also keines von beidem."
+
+#: includes/Admin/Settings.php:1125
+msgid "API key"
+msgstr "API-Schlüssel"
+
+#: includes/Admin/Settings.php:1145
+msgid "Test connection"
+msgstr "Verbindung testen"
+
+#: includes/Admin/Settings.php:1151
+msgid "No key stored yet. Sent as a bearer token, and never written to the log."
+msgstr "Noch kein Schlüssel gespeichert. Wird als Bearer-Token gesendet und nie ins Protokoll geschrieben."
+
+#: includes/Admin/Settings.php:1152
+msgid "A key is stored. Leave this field blank to keep it."
+msgstr "Ein Schlüssel ist gespeichert. Lass dieses Feld leer, um ihn zu behalten."
+
+#: includes/Admin/Settings.php:1161
+msgid "Model"
+msgstr "Modell"
+
+#: includes/Admin/Settings.php:1180
+msgid "Fetch models"
+msgstr "Modelle abrufen"
+
+#. translators: %s: the model id used when none is chosen.
+#: includes/Admin/Settings.php:1187
+#, php-format
+msgid "Leave this on the default to follow the provider's recommendation, currently %s. A mini model is usually right: sorting a product into a fixed list of categories is classification, not reasoning."
+msgstr "Belasse es auf der Vorgabe, um der Empfehlung des Anbieters zu folgen, derzeit %s. Ein Mini-Modell ist meist richtig: ein Produkt in eine feste Liste von Kategorien einzuordnen ist Klassifikation, nicht Schlussfolgern."
+
+#: includes/Admin/Settings.php:1198
+msgid "Categorisation"
+msgstr "Kategorisierung"
+
+#: includes/Admin/Settings.php:1202
+msgid "Category depth"
+msgstr "Kategorietiefe"
+
+#: includes/Admin/Settings.php:1212
+msgid "The deepest the proposed tree may go. It is a limit, not a target — a smaller catalogue will come back shallower."
+msgstr "Wie tief der vorgeschlagene Baum höchstens gehen darf. Eine Obergrenze, kein Ziel — ein kleinerer Katalog kommt flacher zurück."
+
+#: includes/Admin/Settings.php:1217
+msgid "Your guidance"
+msgstr "Deine Vorgaben"
+
+#: includes/Admin/Settings.php:1227
+msgid "How this shop thinks about its catalogue — for example \"organise by age group first, then by material\", or \"keep seasonal products together\". Sent with every request, so it shapes both the proposed tree and how products are sorted into it."
+msgstr "Wie dieser Shop über seinen Katalog denkt — zum Beispiel \"zuerst nach Altersgruppe, dann nach Material gliedern\" oder \"saisonale Produkte zusammenhalten\". Wird mit jeder Anfrage gesendet und prägt damit sowohl den vorgeschlagenen Baum als auch die Einordnung der Produkte."
+
+#: includes/Admin/Settings.php:1232
+msgid "Products to categorise"
+msgstr "Zu kategorisierende Produkte"
+
+#: includes/Admin/Settings.php:1245
+msgid "Existing categories"
+msgstr "Vorhandene Kategorien"
+
+#: includes/Admin/Settings.php:1263
+msgid "Replace the categories a product already has"
+msgstr "Kategorien ersetzen, die ein Produkt bereits hat"
+
+#: includes/Admin/Settings.php:1265
+msgid "On by default. Turn this off to leave already-categorised products alone — they are then skipped without being sent to the model at all."
+msgstr "Standardmässig an. Schalte dies aus, um bereits kategorisierte Produkte unangetastet zu lassen — sie werden dann übersprungen, ohne überhaupt an das Modell gesendet zu werden."
+
+#: includes/Admin/Settings.php:1269
+msgid "Dry run"
+msgstr "Testlauf"
+
+#: includes/Admin/Settings.php:1279
+msgid "Report what would happen without changing anything"
+msgstr "Melden, was passieren würde, ohne etwas zu ändern"
+
+#: includes/Admin/Settings.php:1281
+msgid "The run asks the model and counts the results exactly as a real run would, but writes nothing. A dry run leaves nothing to revert."
+msgstr "Der Lauf fragt das Modell und zählt die Ergebnisse genau wie ein echter Lauf, schreibt aber nichts. Nach einem Testlauf gibt es nichts rückgängig zu machen."
+
+#: includes/Admin/Settings.php:1286
+msgid "Batch size"
+msgstr "Stapelgrösse"
+
+#: includes/Admin/Settings.php:1296
+msgid "Larger batches make fewer requests but risk the model running out of room to answer, which costs the whole batch. 25 is a good balance."
+msgstr "Grössere Stapel brauchen weniger Anfragen, riskieren aber, dass dem Modell der Platz für die Antwort ausgeht — das kostet den ganzen Stapel. 25 ist ein guter Mittelweg."
+
+#: includes/Admin/TaxonomyScreen.php:217
+msgid "Category tree"
+msgstr "Kategoriebaum"
+
+#: includes/Admin/TaxonomyScreen.php:236
+msgid "No tree has been proposed yet. Run \"Propose a category tree\" below, and the result will appear here for you to review before anything is created."
+msgstr "Es wurde noch kein Baum vorgeschlagen. Starte unten \"Kategoriebaum vorschlagen\"; das Ergebnis erscheint hier zur Prüfung, bevor irgendetwas angelegt wird."
+
+#. translators: 1: total categories. 2: categories that can hold products. 3: number of products sampled. 4: model id.
+#: includes/Admin/TaxonomyScreen.php:257
+#, php-format
+msgid "%1$d categories, of which %2$d can hold products. Designed from a sample of %3$d products by %4$s."
+msgstr "%1$d Kategorien, davon %2$d für Produkte. Entworfen aus einer Stichprobe von %3$d Produkten durch %4$s."
+
+#: includes/Admin/TaxonomyScreen.php:261
+msgid "the default model"
+msgstr "das Standardmodell"
+
+#: includes/Admin/TaxonomyScreen.php:266
+msgid "You have edited this draft since it was proposed."
+msgstr "Du hast diesen Entwurf seit dem Vorschlag bearbeitet."
+
+#: includes/Admin/TaxonomyScreen.php:270
+msgid "Nothing exists in your shop yet. Edit the names below, remove anything you do not want, then press Create categories."
+msgstr "In deinem Shop existiert noch nichts davon. Passe die Namen unten an, entferne, was du nicht willst, und klicke dann auf Kategorien anlegen."
+
+#: includes/Admin/TaxonomyScreen.php:292
+msgid "Category"
+msgstr "Kategorie"
+
+#: includes/Admin/TaxonomyScreen.php:293
+msgid "Remove"
+msgstr "Entfernen"
+
+#. translators: %s: the category's full path.
+#: includes/Admin/TaxonomyScreen.php:331
+#, php-format
+msgid "Remove %s and everything under it"
+msgstr "%s und alles darunter entfernen"
+
+#: includes/Admin/TaxonomyScreen.php:344
+msgid "Add categories"
+msgstr "Kategorien hinzufügen"
+
+#. translators: %d: the deepest level allowed.
+#: includes/Admin/TaxonomyScreen.php:350
+#, php-format
+msgid "One category per line, written as a full path with \">\" between the levels — for example \"Wohnen > Deko > Kerzen\". A level that already exists is reused rather than duplicated. Paths deeper than %d levels are not added."
+msgstr "Eine Kategorie pro Zeile, als vollständiger Pfad mit \">\" zwischen den Ebenen — zum Beispiel \"Wohnen > Deko > Kerzen\". Eine bereits vorhandene Ebene wird wiederverwendet statt doppelt angelegt. Pfade tiefer als %d Ebenen werden nicht hinzugefügt."
+
+#: includes/Admin/TaxonomyScreen.php:359
+msgid "Save changes"
+msgstr "Änderungen speichern"
+
+#: includes/Admin/TaxonomyScreen.php:367
+msgid "Create categories"
+msgstr "Kategorien anlegen"
+
+#: includes/Admin/TaxonomyScreen.php:373
+msgid "Creates these categories in your shop. Products are not touched — that is the next step."
+msgstr "Legt diese Kategorien in deinem Shop an. Produkte werden dabei nicht angefasst — das ist der nächste Schritt."
+
+#: includes/Admin/TaxonomyScreen.php:374
+msgid "Already created once. Pressing this again applies your edits; categories that have not changed are left alone."
+msgstr "Bereits einmal angelegt. Ein erneuter Klick übernimmt deine Änderungen; unveränderte Kategorien bleiben unangetastet."
+
+#: includes/Admin/TaxonomyScreen.php:386
+msgid "Discard this draft? The categories it describes have not been created, so nothing in your shop changes."
+msgstr "Diesen Entwurf verwerfen? Die darin beschriebenen Kategorien wurden noch nicht angelegt, in deinem Shop ändert sich also nichts."
+
+#: includes/Admin/TaxonomyScreen.php:387
+msgid "Discard this draft"
+msgstr "Diesen Entwurf verwerfen"
+
+#. translators: %d: number of categories no longer in the draft.
+#: includes/Admin/TaxonomyScreen.php:420
+#, php-format
+msgid "%d category created earlier is not in this draft. It has been left alone — it may hold products or be linked from a menu."
+msgid_plural "%d categories created earlier are not in this draft. They have been left alone — they may hold products or be linked from a menu."
+msgstr[0] "%d früher angelegte Kategorie steht nicht in diesem Entwurf. Sie wurde unangetastet gelassen — sie kann Produkte enthalten oder in einem Menü verlinkt sein."
+msgstr[1] "%d früher angelegte Kategorien stehen nicht in diesem Entwurf. Sie wurden unangetastet gelassen — sie können Produkte enthalten oder in einem Menü verlinkt sein."
+
+#: includes/Admin/TaxonomyScreen.php:431
+msgid "Review your product categories"
+msgstr "Deine Produktkategorien ansehen"
+
+#: includes/Admin/TaxonomyScreen.php:452
+msgid "Restore the draft you had edited before"
+msgstr "Den zuvor bearbeiteten Entwurf wiederherstellen"
+
+#: includes/Categorize/Assignment.php:122
+msgid "No categories have been created from the draft yet. Press \"Create categories\" first."
+msgstr "Aus dem Entwurf wurden noch keine Kategorien angelegt. Klicke zuerst auf \"Kategorien anlegen\"."
+
+#: includes/Categorize/Assignment.php:179
+msgid "This run's working set expired before it finished. Start it again."
+msgstr "Die Arbeitsdaten dieses Laufs sind abgelaufen, bevor er fertig wurde. Starte ihn erneut."
+
+#. translators: %s: number of products.
+#: includes/Categorize/Assignment.php:431
+#, php-format
+msgid "%s products would have been categorised"
+msgstr "%s Produkte wären kategorisiert worden"
+
+#. translators: %s: number of products.
+#: includes/Categorize/Assignment.php:436
+#, php-format
+msgid "%s products categorised"
+msgstr "%s Produkte kategorisiert"
+
+#. translators: %s: number of products the model could not place.
+#: includes/Categorize/Assignment.php:442
+#, php-format
+msgid "%s left uncategorised"
+msgstr "%s ohne Kategorie geblieben"
+
+#. translators: %s: number of products that already had a category.
+#: includes/Categorize/Assignment.php:444
+#, php-format
+msgid "%s skipped as already categorised"
+msgstr "%s übersprungen, da bereits kategorisiert"
+
+#. translators: %s: number of products given an unusable category id.
+#: includes/Categorize/Assignment.php:446
+#, php-format
+msgid "%s given a category that does not exist"
+msgstr "%s haben eine Kategorie erhalten, die es nicht gibt"
+
+#. translators: %s: number of products that could not be written.
+#: includes/Categorize/Assignment.php:448
+#, php-format
+msgid "%s failed"
+msgstr "%s fehlgeschlagen"
+
+#: includes/Categorize/Revert.php:113
+msgid "There is no longer a run to undo."
+msgstr "Es gibt keinen Lauf mehr zum Rückgängigmachen."
+
+#. translators: %s: number of products restored.
+#: includes/Categorize/Revert.php:270
+#, php-format
+msgid "%s products put back the way they were."
+msgstr "%s Produkte wurden wieder so hergestellt, wie sie waren."
+
+#: includes/Deactivator.php:36
+msgid "Interrupted: the plugin was deactivated while this run was in progress."
+msgstr "Unterbrochen: Das Plugin wurde deaktiviert, während dieser Lauf noch lief."
+
+#: includes/Jobs/Preflight.php:98
+msgid "No API key has been saved. Add one on the settings screen before running a job."
+msgstr "Es ist kein API-Schlüssel gespeichert. Hinterlege einen auf der Einstellungsseite, bevor du eine Aufgabe startest."
+
+#: includes/Jobs/Preflight.php:128
+msgid "There are no product categories to sort products into yet. Propose a category tree and create it first."
+msgstr "Es gibt noch keine Produktkategorien, in die einsortiert werden könnte. Schlage zuerst einen Kategoriebaum vor und lege ihn an."
+
+#: includes/Jobs/Scheduler.php:169
+msgid "Propose a category tree"
+msgstr "Kategoriebaum vorschlagen"
+
+#: includes/Jobs/Scheduler.php:170
+msgid "Reads a representative sample of your catalogue and asks the model to design a category tree. Nothing is created until you review it and press Create categories."
+msgstr "Liest eine repräsentative Stichprobe deines Katalogs und lässt das Modell einen Kategoriebaum entwerfen. Es wird nichts angelegt, bis du ihn geprüft und auf Kategorien anlegen geklickt hast."
+
+#: includes/Jobs/Scheduler.php:174
+msgid "Categorise the catalogue"
+msgstr "Katalog kategorisieren"
+
+#: includes/Jobs/Scheduler.php:175
+msgid "Files every product in scope under the category that fits it best. Uses the settings above as they are saved when the run starts."
+msgstr "Ordnet jedes Produkt im gewählten Umfang der am besten passenden Kategorie zu. Verwendet die oben gespeicherten Einstellungen, wie sie beim Start des Laufs sind."
+
+#: includes/Jobs/Scheduler.php:179
+msgid "Undo the last run"
+msgstr "Letzten Lauf rückgängig machen"
+
+#: includes/Jobs/Scheduler.php:180
+msgid "Puts every product the last run touched back to the categories it had before."
+msgstr "Setzt alle Produkte des letzten Laufs auf die Kategorien zurück, die sie vorher hatten."
+
+#: includes/Jobs/Scheduler.php:334
+msgid "an unknown error"
+msgstr "ein unbekannter Fehler"
+
+#. translators: %s: error message.
+#: includes/Jobs/Scheduler.php:339
+#, php-format
+msgid "The run stopped because a background task failed: %s"
+msgstr "Der Lauf wurde gestoppt, weil eine Hintergrundaufgabe fehlgeschlagen ist: %s"
+
+#: includes/Jobs/Scheduler.php:352
+msgid "The run stopped because a background task took too long and was abandoned."
+msgstr "Der Lauf wurde gestoppt, weil eine Hintergrundaufgabe zu lange gedauert hat und abgebrochen wurde."
+
+#: includes/Jobs/Scheduler.php:364
+msgid "a fatal error"
+msgstr "ein schwerwiegender Fehler"
+
+#. translators: %s: error message.
+#: includes/Jobs/Scheduler.php:369
+#, php-format
+msgid "The run stopped because a background task ended unexpectedly: %s"
+msgstr "Der Lauf wurde gestoppt, weil eine Hintergrundaufgabe unerwartet beendet wurde: %s"
+
+#: includes/Provider/OpenAiProvider.php:134
+msgid "OpenAI"
+msgstr ""
+
+#: includes/Provider/OpenAiProvider.php:158
+msgid "GPT-5.4 mini — the balance of accuracy and cost (recommended)"
+msgstr "GPT-5.4 mini — die Balance aus Genauigkeit und Kosten (empfohlen)"
+
+#: includes/Provider/OpenAiProvider.php:159
+msgid "GPT-5.4 nano — cheapest and fastest, for a simple catalogue"
+msgstr "GPT-5.4 nano — am günstigsten und schnellsten, für einen einfachen Katalog"
+
+#: includes/Provider/OpenAiProvider.php:160
+msgid "GPT-5.4 — for a catalogue the mini model struggles with"
+msgstr "GPT-5.4 — für einen Katalog, mit dem das Mini-Modell Mühe hat"
+
+#: includes/Provider/OpenAiProvider.php:161
+msgid "GPT-5.5 — the most capable, and the most expensive"
+msgstr "GPT-5.5 — das leistungsfähigste und das teuerste"
+
+#: includes/Provider/OpenAiProvider.php:436
+msgid "The AI provider returned a response that could not be decoded."
+msgstr "Der KI-Anbieter hat eine Antwort geliefert, die nicht gelesen werden konnte."
+
+#. translators: %s: the reason the provider gave, for example "max_output_tokens".
+#: includes/Provider/OpenAiProvider.php:458
+#, php-format
+msgid "The AI provider did not finish its answer (%s)."
+msgstr "Der KI-Anbieter hat seine Antwort nicht zu Ende gebracht (%s)."
+
+#: includes/Provider/OpenAiProvider.php:475
+msgid "The AI provider returned no answer."
+msgstr "Der KI-Anbieter hat keine Antwort geliefert."
+
+#: includes/Provider/OpenAiProvider.php:487
+msgid "The AI provider returned an answer that did not match the requested format."
+msgstr "Der KI-Anbieter hat eine Antwort geliefert, die nicht dem angeforderten Format entspricht."
+
+#. translators: %d: HTTP status code returned by the AI provider.
+#: includes/Provider/OpenAiProvider.php:574
+#, php-format
+msgid "The AI provider returned HTTP status %d."
+msgstr "Der KI-Anbieter hat den HTTP-Status %d zurückgegeben."
+
+#: includes/Provider/OpenAiProvider.php:676
+msgid "No OpenAI API key has been saved yet."
+msgstr "Es ist noch kein OpenAI-API-Schlüssel gespeichert."
+
+#: includes/Provider/Providers.php:93
+msgid "No AI provider has been configured."
+msgstr "Es ist kein KI-Anbieter konfiguriert."
+
+#: includes/Taxonomy/Proposal.php:124
+msgid "There are no products to design a category tree from."
+msgstr "Es gibt keine Produkte, aus denen sich ein Kategoriebaum entwerfen liesse."
+
+#: includes/Taxonomy/Proposal.php:155
+msgid "The catalogue sample expired before it could be used. Start the proposal again."
+msgstr "Die Katalog-Stichprobe ist abgelaufen, bevor sie verwendet werden konnte. Starte den Vorschlag erneut."
+
+#: includes/Taxonomy/Proposal.php:234
+msgid "The model did not return a usable category tree. Try again, or adjust your guidance."
+msgstr "Das Modell hat keinen brauchbaren Kategoriebaum geliefert. Versuche es erneut oder passe deine Vorgaben an."
+
+#. translators: 1: number of top-level categories. 2: total categories. 3: number of categories products can be filed under.
+#: includes/Taxonomy/Proposal.php:252
+#, php-format
+msgid "Proposed %1$d top-level categories, %2$d in total, of which %3$d can hold products. Review them below."
+msgstr "%1$d Hauptkategorien vorgeschlagen, %2$d insgesamt, davon %3$d für Produkte. Prüfe sie unten."
+
+#: woo-product-categorizer-ai.php:60
+msgid "Woo Product Categorizer AI is missing its dependencies. Run \"composer install\" in the plugin directory."
+msgstr "Woo Product Categorizer AI fehlen seine Abhängigkeiten. Führe \"composer install\" im Plugin-Verzeichnis aus."
+
+#. translators: %s: minimum supported WooCommerce version.
+#: woo-product-categorizer-ai.php:78
+#, php-format
+msgid "Woo Product Categorizer AI requires WooCommerce %s or newer to be installed and active."
+msgstr "Woo Product Categorizer AI benötigt WooCommerce %s oder neuer, installiert und aktiviert."

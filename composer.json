@@ -39,15 +39,22 @@
 		"check": [
 			"@composer validate --strict",
 			"bin/check-version.sh",
+			"@i18n:check",
 			"@lint",
 			"@test"
-		]
+		],
+		"i18n": "bin/make-translations.sh",
+		"i18n:check": "bin/check-translations.sh",
+		"build": "bin/build-zip.sh"
 	},
 	"scripts-descriptions": {
 		"lint": "Check the plugin against the WooCommerce/WordPress coding standards.",
 		"lint:fix": "Automatically fix the coding standard violations that can be fixed.",
 		"test": "Run the PHPUnit suite against the WordPress test library.",
 		"test:coverage": "Run the suite and write a coverage report to coverage-html/.",
-		"check": "Run everything CI runs before it builds: validate, version, lint, test."
+		"check": "Run everything CI runs before it builds: validate, version, i18n, lint, test.",
+		"i18n": "Re-extract the POT and recompile every translation catalogue.",
+		"i18n:check": "Check the POT still lists every translatable string in the source.",
+		"build": "Build the distributable plugin zip into dist/."
 	}
 }
