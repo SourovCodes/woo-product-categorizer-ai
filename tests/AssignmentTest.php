@@ -11,6 +11,7 @@ use WooProductCategorizerAi\Admin\Settings;
 use WooProductCategorizerAi\Categorize\Applier;
 use WooProductCategorizerAi\Categorize\Assignment;
 use WooProductCategorizerAi\Categorize\Batch;
+use WooProductCategorizerAi\Jobs\Scheduler;
 use WooProductCategorizerAi\Jobs\Status;
 use WooProductCategorizerAi\Taxonomy\Creator;
 use WooProductCategorizerAi\Taxonomy\Draft;
@@ -594,6 +595,75 @@ class AssignmentTest extends WP_UnitTestCase {
 		$this->assertSame( 2, $this->counts()['failed'] );
 		$this->assertSame( 2, $this->counts()['assigned'] );
 		$this->assertSame( array( 'Deko', 'Wohnen' ), $this->categories( $ids[2] ) );
+	}
+
+	/**
+	 * The provider has already spent its own retries by the time a 429 reaches the
+	 * run, so continuing immediately means sending the next batch into the same
+	 * closed door. With 176 of them, that burns the whole catalogue against it.
+	 *
+	 * @return void
+	 */
+	public function test_a_rate_limited_batch_delays_the_next_one() {
+		$ids = $this->make_products( 4 );
+
+		$this->provider->answers[] = new \WP_Error(
+			'wpcai_api_error',
+			'Rate limit reached.',
+			array(
+				'disposition' => 'retry',
+				'status'      => 429,
+				'retry_after' => 30,
+			)
+		);
+
+		// Only the throttled batch is driven, so the queue holds just its successor.
+		$job = new Assignment( $this->provider, $this->settings( array( 'batch_size' => 2 ) ) );
+		$job->start();
+		$job->batch( 0, (int) Status::get( Assignment::JOB )['started'] );
+
+		$next = as_next_scheduled_action(
+			Scheduler::ACTION_ASSIGN_BATCH,
+			array(
+				'after_id' => $ids[1],
+				'run'      => (int) Status::get( Assignment::JOB )['started'],
+			),
+			Scheduler::GROUP
+		);
+
+		$this->assertIsInt( $next, 'A rate-limited batch must queue its successor for later, not immediately.' );
+		$this->assertGreaterThan( time() + 10, $next );
+
+		// The run carries on rather than being abandoned over one throttled request.
+		$this->assertSame( 'running', Status::get( Assignment::JOB )['state'] );
+		$this->assertSame( 2, $this->counts()['failed'] );
+	}
+
+	/**
+	 * A batch that went fine must not be delayed — one throttled request slows the
+	 * run down once, not permanently.
+	 *
+	 * @return void
+	 */
+	public function test_a_healthy_batch_queues_its_successor_immediately() {
+		$ids = $this->make_products( 4 );
+
+		$this->will_file_all( 2, $this->leaf( 'Deko' ) );
+
+		$job = new Assignment( $this->provider, $this->settings( array( 'batch_size' => 2 ) ) );
+		$job->start();
+		$job->batch( 0, (int) Status::get( Assignment::JOB )['started'] );
+
+		$next = as_next_scheduled_action(
+			Scheduler::ACTION_ASSIGN_BATCH,
+			array(
+				'after_id' => $ids[1],
+				'run'      => (int) Status::get( Assignment::JOB )['started'],
+			),
+			Scheduler::GROUP
+		);
+
+		$this->assertTrue( $next, 'An untroubled batch chains straight on.' );
 	}
 
 	/**

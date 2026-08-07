@@ -64,6 +64,21 @@ class Assignment {
 	protected $settings;
 
 	/**
+	 * How long the next batch should wait, in seconds.
+	 *
+	 * Set only when a batch was rate-limited. Reset at the start of every batch, so
+	 * one throttled request slows the run down once rather than permanently.
+	 *
+	 * @var int
+	 */
+	protected $backoff = 0;
+
+	/**
+	 * How long to wait after a rate limit when the provider named no delay.
+	 */
+	const DEFAULT_BACKOFF = 60;
+
+	/**
 	 * Construct the job.
 	 *
 	 * @param mixed      $provider Optional provider override.
@@ -174,6 +189,8 @@ class Assignment {
 
 		Applier::reset_log_cap();
 
+		$this->backoff = 0;
+
 		$partition = Batch::partition( $ids, $options['override'] );
 		$counts    = array( 'skipped_has_cats' => count( $partition['skip'] ) );
 
@@ -189,13 +206,17 @@ class Assignment {
 			return;
 		}
 
-		Scheduler::chain(
-			Scheduler::ACTION_ASSIGN_BATCH,
-			array(
-				'after_id' => max( $ids ),
-				'run'      => $run,
-			)
+		$next = array(
+			'after_id' => max( $ids ),
+			'run'      => $run,
 		);
+
+		if ( $this->backoff > 0 ) {
+			Scheduler::chain_after( $this->backoff, Scheduler::ACTION_ASSIGN_BATCH, $next );
+			return;
+		}
+
+		Scheduler::chain( Scheduler::ACTION_ASSIGN_BATCH, $next );
 	}
 
 	/**
@@ -283,6 +304,17 @@ class Assignment {
 			Status::fail( self::JOB, $error->get_error_message() );
 
 			return array();
+		}
+
+		/*
+		 * The provider has already spent its own retries by the time a 429 gets here,
+		 * so sending the next batch immediately means sending it into the same closed
+		 * door. Backing the run off as a whole is the only thing that helps.
+		 */
+		if ( 429 === $status ) {
+			$named = (int) OpenAiProvider::detail( $error, 'retry_after', '0' );
+
+			$this->backoff = $named > 0 ? $named : self::DEFAULT_BACKOFF;
 		}
 
 		Scheduler::log( 'error', 'A batch failed and was skipped: ' . $error->get_error_message() );

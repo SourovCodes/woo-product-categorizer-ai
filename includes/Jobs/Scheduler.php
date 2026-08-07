@@ -451,6 +451,29 @@ class Scheduler {
 	}
 
 	/**
+	 * Queue a follow-up action, but not yet.
+	 *
+	 * Used when a batch has just been rate-limited. The provider's own retries have
+	 * already been spent by then, so continuing immediately would send the next
+	 * batch into the same closed door — and with 176 of them, a run that keeps going
+	 * at full speed through a rate limit burns the entire catalogue against it. The
+	 * delay backs the run off as a whole rather than one request at a time.
+	 *
+	 * @param int    $delay Seconds to wait.
+	 * @param string $hook  Action hook to queue.
+	 * @param array  $args  Arguments to pass along.
+	 * @return void
+	 */
+	public static function chain_after( $delay, $hook, array $args ) {
+		if ( ! self::is_available() || ! function_exists( 'as_schedule_single_action' ) ) {
+			self::chain( $hook, $args );
+			return;
+		}
+
+		as_schedule_single_action( time() + max( 1, (int) $delay ), $hook, $args, self::GROUP, false, self::PRIORITY_DEFAULT );
+	}
+
+	/**
 	 * Cancel everything this plugin has queued.
 	 *
 	 * @return void
