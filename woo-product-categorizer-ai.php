@@ -134,6 +134,14 @@ function bootstrap() {
 }
 
 if ( load_autoloader() ) {
+	/*
+	 * Registered ahead of the WooCommerce gate rather than inside bootstrap(). An
+	 * update is often the thing that fixes a plugin sitting inert behind that gate,
+	 * so a site whose WooCommerce is too old must still be offered the version that
+	 * supports it.
+	 */
+	( new Updates\Updater() )->register();
+
 	add_action( 'before_woocommerce_init', __NAMESPACE__ . '\\declare_woocommerce_compatibility' );
 	add_action( 'plugins_loaded', __NAMESPACE__ . '\\bootstrap' );
 

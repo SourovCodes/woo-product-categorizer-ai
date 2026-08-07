@@ -1,0 +1,76 @@
+name: Set up the plugin
+description: >-
+  Install PHP, the Composer dependencies and — optionally — a WordPress install with
+  WooCommerce for the PHPUnit suite. Shared by every job so the toolchain is defined once.
+
+inputs:
+  php-version:
+    description: PHP version to run on.
+    required: false
+    default: '8.2'
+  coverage:
+    description: Coverage driver for setup-php (none, pcov or xdebug).
+    required: false
+    default: 'none'
+  install-wordpress:
+    description: Whether to provision WordPress, WooCommerce and the test database.
+    required: false
+    default: 'false'
+  wp-version:
+    description: WordPress version to test against, or "latest".
+    required: false
+    default: 'latest'
+  wc-version:
+    description: WooCommerce version to test against, or "latest".
+    required: false
+    default: 'latest'
+  composer-options:
+    description: Extra flags for `composer install`.
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Set up PHP ${{ inputs.php-version }}
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: ${{ inputs.php-version }}
+        # mysqli talks to the test database; WooCommerce wants gd, zip and intl.
+        extensions: mysqli, zip, gd, intl
+        coverage: ${{ inputs.coverage }}
+        tools: composer:v2
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+
+    - name: Resolve the Composer cache directory
+      id: composer-cache
+      shell: bash
+      run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+    - name: Restore the Composer cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.composer-cache.outputs.dir }}
+        key: composer-${{ runner.os }}-php${{ inputs.php-version }}-${{ hashFiles('**/composer.lock') }}
+        restore-keys: |
+          composer-${{ runner.os }}-php${{ inputs.php-version }}-
+          composer-${{ runner.os }}-
+
+    - name: Install the Composer dependencies
+      shell: bash
+      run: composer install --prefer-dist --no-progress --no-interaction ${{ inputs.composer-options }}
+
+    - name: Provision WordPress, WooCommerce and the test database
+      if: inputs.install-wordpress == 'true'
+      shell: bash
+      run: ./bin/install-wp-tests-ci.sh
+      env:
+        WP_VERSION: ${{ inputs.wp-version }}
+        WC_VERSION: ${{ inputs.wc-version }}
+        WP_ROOT: ${{ runner.temp }}/wordpress
+        DB_NAME: woo_categorizer_tests
+        DB_USER: root
+        DB_PASS: root
+        DB_HOST: 127.0.0.1
+        DB_PORT: '3306'

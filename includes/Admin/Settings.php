@@ -13,6 +13,7 @@ use WooProductCategorizerAi\Jobs\Scheduler;
 use WooProductCategorizerAi\Jobs\Status;
 use WooProductCategorizerAi\Provider\OpenAiProvider;
 use WooProductCategorizerAi\Provider\Providers;
+use WooProductCategorizerAi\Updates\Updater;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -184,6 +185,7 @@ class Settings {
 		add_action( 'wp_ajax_wpcai_job_progress', array( $this, 'handle_job_progress' ) );
 		add_action( 'admin_post_wpcai_run_job', array( $this, 'handle_run_job' ) );
 		add_action( 'admin_post_wpcai_forget_revert', array( $this, 'handle_forget_revert' ) );
+		add_action( 'admin_post_wpcai_check_updates', array( $this, 'handle_check_updates' ) );
 
 		/*
 		 * A saved key or a switched provider invalidates whatever the last connection
@@ -803,6 +805,131 @@ class Settings {
 	}
 
 	/**
+	 * Ask GitHub for the latest release now, rather than waiting for WordPress.
+	 *
+	 * @return void
+	 */
+	public function handle_check_updates() {
+		if ( ! current_user_can( 'update_plugins' ) ) {
+			wp_die( esc_html__( 'You do not have permission to do that.', 'woo-product-categorizer-ai' ) );
+		}
+
+		check_admin_referer( 'wpcai_check_updates' );
+
+		$status = ( new Updater() )->refresh();
+
+		wp_safe_redirect(
+			add_query_arg(
+				array(
+					'page'         => self::PAGE_SLUG,
+					'wpcai_update' => $status['state'],
+				),
+				admin_url( 'admin.php' )
+			)
+		);
+
+		exit;
+	}
+
+	/**
+	 * Show which version is installed and whether a newer one exists.
+	 *
+	 * @return void
+	 */
+	protected function render_updates_section() {
+		if ( ! current_user_can( 'update_plugins' ) ) {
+			return;
+		}
+
+		$status = Updater::status();
+		?>
+		<h2><?php echo esc_html__( 'Updates', 'woo-product-categorizer-ai' ); ?></h2>
+		<table class="widefat striped">
+			<tbody>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Installed version', 'woo-product-categorizer-ai' ); ?></th>
+					<td><?php echo esc_html( WPCAI_VERSION ); ?></td>
+				</tr>
+				<tr>
+					<th scope="row"><?php echo esc_html__( 'Latest release', 'woo-product-categorizer-ai' ); ?></th>
+					<td>
+						<?php if ( 'available' === $status['state'] ) : ?>
+							<strong><?php echo esc_html( $status['version'] ); ?></strong>
+							&mdash;
+							<a href="<?php echo esc_url( self_admin_url( 'plugins.php' ) ); ?>">
+								<?php echo esc_html__( 'install it from the plugins screen', 'woo-product-categorizer-ai' ); ?>
+							</a>
+						<?php elseif ( 'current' === $status['state'] ) : ?>
+							<?php echo esc_html__( 'This is the newest release.', 'woo-product-categorizer-ai' ); ?>
+						<?php else : ?>
+							<?php echo esc_html__( 'Not known. Nothing has checked yet, or the last check could not reach GitHub.', 'woo-product-categorizer-ai' ); ?>
+						<?php endif; ?>
+					</td>
+				</tr>
+			</tbody>
+		</table>
+
+		<form class="wpcai-inline-form" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" method="post">
+			<input type="hidden" name="action" value="wpcai_check_updates" />
+			<?php wp_nonce_field( 'wpcai_check_updates' ); ?>
+			<button type="submit" class="button"><?php echo esc_html__( 'Check for updates', 'woo-product-categorizer-ai' ); ?></button>
+		</form>
+		<p class="description">
+			<?php echo esc_html__( 'WordPress looks for plugin updates about twice a day and reuses that answer in between, so a release published since the last look does not appear on its own. This discards what was cached and asks again.', 'woo-product-categorizer-ai' ); ?>
+		</p>
+		<?php
+	}
+
+	/**
+	 * Report what pressing "Check for updates" found.
+	 *
+	 * @return void
+	 */
+	protected function render_update_notice() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- a read-only display flag set by our own redirect; the check itself was nonce-checked.
+		$state = isset( $_GET['wpcai_update'] ) ? sanitize_key( wp_unslash( $_GET['wpcai_update'] ) ) : '';
+
+		if ( '' === $state ) {
+			return;
+		}
+
+		if ( 'available' === $state ) {
+			printf(
+				'<div class="notice notice-warning is-dismissible"><p>%s</p></div>',
+				esc_html(
+					sprintf(
+						/* translators: %s: version number of the release that was found. */
+						__( 'Version %s is available. Install it from the plugins screen.', 'woo-product-categorizer-ai' ),
+						Updater::status()['version']
+					)
+				)
+			);
+
+			return;
+		}
+
+		if ( 'current' === $state ) {
+			printf(
+				'<div class="notice notice-success is-dismissible"><p>%s</p></div>',
+				esc_html__( 'This is the newest release.', 'woo-product-categorizer-ai' )
+			);
+
+			return;
+		}
+
+		/*
+		 * Anything else is a check that could not be made. WordPress asks its own API
+		 * first and abandons the whole check if that fails, so this covers
+		 * WordPress.org being unreachable as well as GitHub — and either way the
+		 * honest answer is that nobody could be asked, not that the plugin is current.
+		 */
+		printf(
+			'<div class="notice notice-error is-dismissible"><p>%s</p></div>',
+			esc_html__( 'The release could not be checked. GitHub or WordPress.org could not be reached; try again in a moment.', 'woo-product-categorizer-ai' )
+		);
+	}
+
+	/**
 	 * A sentence describing how a job last went.
 	 *
 	 * @param array $status Status array.
@@ -1099,6 +1226,7 @@ class Settings {
 			<h1><?php echo esc_html__( 'Product Categorizer AI', 'woo-product-categorizer-ai' ); ?></h1>
 
 			<?php $this->render_queued_notice(); ?>
+			<?php $this->render_update_notice(); ?>
 
 			<form action="options.php" method="post">
 				<?php settings_fields( self::OPTION_GROUP ); ?>
@@ -1304,6 +1432,7 @@ class Settings {
 			<?php ( new TaxonomyScreen() )->render(); ?>
 			<?php $this->render_jobs_table(); ?>
 			<?php $this->render_revert_section(); ?>
+			<?php $this->render_updates_section(); ?>
 		</div>
 		<?php
 	}

@@ -1,0 +1,23 @@
+version: 2
+
+updates:
+  # Composer holds the standards and test toolchain. Two pins in composer.json are
+  # deliberate and must not be "upgraded" — PHP_CodeSniffer stays on 3.x and PHPUnit
+  # on 9.x, both for WordPress's sake. See CLAUDE.md; the ignore rules below keep
+  # Dependabot from reopening those pull requests every week.
+  - package-ecosystem: composer
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: phpunit/phpunit
+        versions: ['>=10']
+      - dependency-name: squizlabs/php_codesniffer
+        versions: ['>=4']
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5

@@ -1,0 +1,93 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  # Dry run: builds and verifies the artefact without publishing anything.
+  workflow_dispatch:
+
+# A literal group, matching ci.yml, so the CI run this one calls cannot collide with
+# it. Releases are never cancelled in flight: a half-published tag is worse than a
+# queued one.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # Nothing is published on a red build: the same lint, tests, audit and build that
+  # guard a pull request have to pass on the tagged commit first.
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    name: Publish the release
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out the plugin
+        uses: actions/checkout@v7
+
+      - name: Set up the plugin
+        uses: ./.github/actions/setup-plugin
+        with:
+          php-version: '8.2'
+
+      # The tag is the release; a tag whose commit says a different version would
+      # ship an update WordPress cannot reason about.
+      - name: Check the tag matches the plugin version
+        id: version
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            version="$( ./bin/check-version.sh "${{ github.ref_name }}" )"
+          else
+            version="$( ./bin/check-version.sh )"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Plugin version $version"
+
+      - name: Build the plugin zip
+        run: ./bin/build-zip.sh
+
+      - name: Upload the build
+        uses: actions/upload-artifact@v7
+        with:
+          name: woo-product-categorizer-ai-${{ steps.version.outputs.version }}
+          path: |
+            dist/*.zip
+            dist/*.sha256
+            dist/update.json
+          if-no-files-found: error
+
+      - name: Create the GitHub release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # A tag such as v0.5.0-rc.1 is a pre-release.
+          prerelease=""
+          case "$TAG" in
+            *-*) prerelease="--prerelease" ;;
+          esac
+
+          # update.json rides along on every release under that exact name: it is what
+          # /releases/latest/download/update.json resolves to, and the only thing an
+          # installed copy of the plugin reads to discover this version. A release
+          # published without it is invisible to every site already running the plugin.
+          gh release create "$TAG" \
+            dist/woo-product-categorizer-ai-"$VERSION".zip \
+            dist/woo-product-categorizer-ai-"$VERSION".zip.sha256 \
+            dist/update.json \
+            --title "Woo Product Categorizer AI $VERSION" \
+            --generate-notes \
+            --verify-tag \
+            $prerelease

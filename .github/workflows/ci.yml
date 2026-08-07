@@ -1,0 +1,221 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  # Called by the release workflow, so nothing is ever released on a red build.
+  workflow_call:
+  workflow_dispatch:
+
+# A new push to the same branch makes the run in progress irrelevant.
+#
+# The group is a literal rather than ${{ github.workflow }}, which inside a called
+# workflow resolves to the *caller's* name: this workflow would then land in the same
+# group as the release that called it and cancel the run waiting on it.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  COMPOSER_NO_INTERACTION: '1'
+
+jobs:
+  lint:
+    name: Coding standards
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the plugin
+        uses: actions/checkout@v7
+
+      - name: Set up the plugin
+        uses: ./.github/actions/setup-plugin
+        with:
+          php-version: '8.2'
+
+      - name: Validate composer.json and composer.lock
+        run: composer validate --strict
+
+      - name: Check the version is stated consistently
+        run: ./bin/check-version.sh
+
+      - name: PHPCS (WooCommerce coding standards)
+        run: composer lint
+
+      - name: Check the admin JavaScript parses
+        run: |
+          for file in $(find assets/js -name '*.js' 2>/dev/null); do
+            echo "node --check $file"
+            node --check "$file"
+          done
+
+  i18n:
+    name: Translations
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the plugin
+        uses: actions/checkout@v7
+
+      - name: Set up the plugin
+        uses: ./.github/actions/setup-plugin
+        with:
+          php-version: '8.2'
+
+      - name: Install wp-cli
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/wp-cli.phar" \
+            https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+          chmod +x "$RUNNER_TEMP/wp-cli.phar"
+          sudo mv "$RUNNER_TEMP/wp-cli.phar" /usr/local/bin/wp
+          wp --version
+
+      # Whether those strings are translated is asserted by tests/I18nTest.php, which
+      # needs WordPress and so runs in the test job instead.
+      - name: Check the catalogue still describes the source
+        run: ./bin/check-translations.sh
+
+  security:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the plugin
+        uses: actions/checkout@v7
+
+      - name: Set up the plugin
+        uses: ./.github/actions/setup-plugin
+        with:
+          php-version: '8.2'
+
+      - name: Audit the locked dependencies
+        run: composer audit --locked --abandoned=report
+
+  test:
+    name: Tests (PHP ${{ matrix.php }}, WP ${{ matrix.wordpress }}, WC ${{ matrix.woocommerce }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      # One version failing should not hide whether the others pass.
+      fail-fast: false
+      matrix:
+        # 8.2 is the floor and the version the production site runs; the rest are
+        # forward compatibility.
+        php: ['8.2', '8.3', '8.4']
+        wordpress: ['latest']
+        woocommerce: ['latest']
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: woo_categorizer_tests
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - name: Check out the plugin
+        uses: actions/checkout@v7
+
+      - name: Set up the plugin
+        uses: ./.github/actions/setup-plugin
+        with:
+          php-version: ${{ matrix.php }}
+          install-wordpress: 'true'
+          wp-version: ${{ matrix.wordpress }}
+          wc-version: ${{ matrix.woocommerce }}
+
+      - name: PHPUnit
+        run: composer test
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: woo_categorizer_tests
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - name: Check out the plugin
+        uses: actions/checkout@v7
+
+      - name: Set up the plugin
+        uses: ./.github/actions/setup-plugin
+        with:
+          php-version: '8.2'
+          coverage: pcov
+          install-wordpress: 'true'
+
+      - name: PHPUnit with coverage
+        run: |
+          vendor/bin/phpunit \
+            --coverage-text=coverage.txt \
+            --coverage-clover=coverage.xml \
+            --coverage-html=coverage-html
+
+      - name: Publish the coverage summary
+        if: always()
+        run: |
+          if [ -f coverage.txt ]; then
+            {
+              echo '### Code coverage'
+              echo ''
+              echo '```'
+              cat coverage.txt
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload the coverage report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-report
+          path: |
+            coverage.xml
+            coverage-html
+          retention-days: 14
+
+  build:
+    name: Build the plugin zip
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the plugin
+        uses: actions/checkout@v7
+
+      - name: Set up the plugin
+        uses: ./.github/actions/setup-plugin
+        with:
+          php-version: '8.2'
+
+      - name: Build
+        run: ./bin/build-zip.sh
+
+      # Proves on every pull request that the release artefact can still be produced,
+      # and leaves an installable build to test by hand.
+      - name: Upload the build
+        uses: actions/upload-artifact@v7
+        with:
+          name: woo-product-categorizer-ai-zip
+          path: dist/*.zip
+          retention-days: 14
+          if-no-files-found: error
