@@ -160,6 +160,16 @@ error:
   own action, and why `REQUEST_TIMEOUT` is 120.
 - `GET /v1/models` returns the whole account catalogue — audio, image, embedding, realtime, codex —
   so the model picker has to filter it.
+- **The Batch API accepts `/v1/responses`**, and each line of its result file carries a `body` in
+  exactly the same shape a live response has. That is why `payload_from_body()` is shared: a
+  truncated answer, a missing message and a malformed payload are recognised identically whether
+  they arrived in a second or in a file the next day. Submit is two calls — a multipart upload to
+  `/v1/files` with `purpose=batch`, then `POST /v1/batches`. Statuses are
+  `validating → in_progress → finalizing → completed | failed | expired | cancelled`.
+- **Bulk mode does get prompt-cache hits where live mode gets none.** Measured on a real 105-request
+  run: 107,264 of 382,917 input tokens cached, against a flat zero for the same catalogue live. The
+  requests are executed back to back at the provider rather than minutes apart, which is apparently
+  enough. Do not "fix" the live path to chase this; the prefix is still under the threshold there.
 
 ## The category tree
 
@@ -196,6 +206,14 @@ Three job keys — `taxonomy`, `assign`, `revert` — over ten Action Scheduler 
 - **Whoever cancels the work owns closing the status behind it.** `Deactivator` calls
   `Status::abandon()` *before* `Scheduler::unschedule_all()`, because cancelling the queue destroys
   the chain that would have reported the outcome.
+- **The two assignment modes share one job key, one status and one finaliser.** `Assignment` and
+  `BulkRun` are two ways of doing one thing, so only one can be in flight and the Run button reads
+  the mode to decide which action to queue.
+- **A bulk run's chain outlives its own actions by hours**, which makes an Action Scheduler retry of
+  an already-completed stage a real possibility rather than a theoretical one. That is why its
+  stages use `is_live()` — the stale-run fence *and* a check that the run is still running — and why
+  `send()` refuses to finalise when a batch for that run is already in flight. Both were written
+  after watching two chains race each other and close a run whose batch was still at the provider.
 
 ## Dependency versions — do not "upgrade" these
 

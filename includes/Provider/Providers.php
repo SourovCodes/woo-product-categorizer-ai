@@ -99,6 +99,21 @@ class Providers {
 	}
 
 	/**
+	 * Whether the configured provider can answer in bulk.
+	 *
+	 * Asked rather than assumed, so the settings screen simply does not offer the
+	 * mode to a provider that has no such endpoint.
+	 *
+	 * @param array|null $settings Settings to use, or null to read the stored ones.
+	 * @return bool
+	 */
+	public static function supports_batch( $settings = null ) {
+		$provider = self::get( $settings );
+
+		return ! is_wp_error( $provider ) && $provider instanceof BatchProviderInterface;
+	}
+
+	/**
 	 * The model the configured provider should be asked with.
 	 *
 	 * An empty stored value is a legitimate choice meaning "whatever this provider

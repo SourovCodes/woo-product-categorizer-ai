@@ -8,7 +8,9 @@
 namespace WooProductCategorizerAi\Jobs;
 
 use Exception;
+use WooProductCategorizerAi\Admin\Settings;
 use WooProductCategorizerAi\Categorize\Assignment;
+use WooProductCategorizerAi\Categorize\BulkRun;
 use WooProductCategorizerAi\Categorize\Revert;
 use WooProductCategorizerAi\Taxonomy\Proposal;
 
@@ -70,9 +72,35 @@ class Scheduler {
 	const ACTION_ASSIGN_BATCH = 'woo_product_categorizer_ai_assign_batch';
 
 	/**
-	 * Close out an assignment run.
+	 * Close out an assignment run. Shared by both modes: the run ends the same way
+	 * whether its answers arrived live or in a file.
 	 */
 	const ACTION_ASSIGN_FINALISE = 'woo_product_categorizer_ai_assign_finalise';
+
+	/**
+	 * Start an assignment run through the provider's bulk endpoint.
+	 */
+	const ACTION_BULK = 'woo_product_categorizer_ai_bulk';
+
+	/**
+	 * Describe a slice of the catalogue ready for sending.
+	 */
+	const ACTION_BULK_BUILD = 'woo_product_categorizer_ai_bulk_build';
+
+	/**
+	 * Upload everything and open the batch.
+	 */
+	const ACTION_BULK_SEND = 'woo_product_categorizer_ai_bulk_send';
+
+	/**
+	 * Ask whether the batch is finished. Chains to itself until it is.
+	 */
+	const ACTION_BULK_POLL = 'woo_product_categorizer_ai_bulk_poll';
+
+	/**
+	 * Apply a slice of the finished answers.
+	 */
+	const ACTION_BULK_COLLECT = 'woo_product_categorizer_ai_bulk_collect';
 
 	/**
 	 * Start a revert.
@@ -115,6 +143,11 @@ class Scheduler {
 			self::ACTION_ASSIGN           => 'assign',
 			self::ACTION_ASSIGN_BATCH     => 'assign',
 			self::ACTION_ASSIGN_FINALISE  => 'assign',
+			self::ACTION_BULK             => 'assign',
+			self::ACTION_BULK_BUILD       => 'assign',
+			self::ACTION_BULK_SEND        => 'assign',
+			self::ACTION_BULK_POLL        => 'assign',
+			self::ACTION_BULK_COLLECT     => 'assign',
 			self::ACTION_REVERT           => 'revert',
 			self::ACTION_REVERT_BATCH     => 'revert',
 			self::ACTION_REVERT_FINALISE  => 'revert',
@@ -136,6 +169,11 @@ class Scheduler {
 		add_action( self::ACTION_ASSIGN, array( $this, 'handle_assign' ) );
 		add_action( self::ACTION_ASSIGN_BATCH, array( $this, 'handle_assign_batch' ), 10, 2 );
 		add_action( self::ACTION_ASSIGN_FINALISE, array( $this, 'handle_assign_finalise' ), 10, 1 );
+		add_action( self::ACTION_BULK, array( $this, 'handle_bulk' ) );
+		add_action( self::ACTION_BULK_BUILD, array( $this, 'handle_bulk_build' ), 10, 3 );
+		add_action( self::ACTION_BULK_SEND, array( $this, 'handle_bulk_send' ), 10, 2 );
+		add_action( self::ACTION_BULK_POLL, array( $this, 'handle_bulk_poll' ), 10, 1 );
+		add_action( self::ACTION_BULK_COLLECT, array( $this, 'handle_bulk_collect' ), 10, 2 );
 		add_action( self::ACTION_REVERT, array( $this, 'handle_revert' ) );
 		add_action( self::ACTION_REVERT_BATCH, array( $this, 'handle_revert_batch' ), 10, 2 );
 		add_action( self::ACTION_REVERT_FINALISE, array( $this, 'handle_revert_finalise' ), 10, 1 );
@@ -173,7 +211,14 @@ class Scheduler {
 			'assign'   => array(
 				'label'       => __( 'Categorise the catalogue', 'woo-product-categorizer-ai' ),
 				'description' => __( 'Files every product in scope under the category that fits it best. Uses the settings above as they are saved when the run starts.', 'woo-product-categorizer-ai' ),
-				'action'      => self::ACTION_ASSIGN,
+
+				/*
+				 * Which action starts this depends on the mode, and it is read when the
+				 * button is pressed rather than baked in — the two modes are one job done
+				 * two ways, sharing a status, a lock and a finaliser, so only one of them
+				 * can ever be in flight.
+				 */
+				'action'      => Settings::uses_bulk_mode() ? self::ACTION_BULK : self::ACTION_ASSIGN,
 			),
 			'revert'   => array(
 				'label'       => __( 'Undo the last run', 'woo-product-categorizer-ai' ),
@@ -287,6 +332,63 @@ class Scheduler {
 	 */
 	public function handle_assign_finalise( $run = 0 ) {
 		( new Assignment() )->finalise( (int) $run );
+	}
+
+	/**
+	 * Start an assignment run through the bulk endpoint.
+	 *
+	 * @return void
+	 */
+	public function handle_bulk() {
+		( new BulkRun() )->start();
+	}
+
+	/**
+	 * Describe a slice of the catalogue.
+	 *
+	 * @param int $after_id Continue after this product id.
+	 * @param int $chunk    Which chunk this is.
+	 * @param int $run      The run this action belongs to.
+	 * @return void
+	 */
+	public function handle_bulk_build( $after_id = 0, $chunk = 0, $run = 0 ) {
+		( new BulkRun() )->build( (int) $after_id, (int) $chunk, (int) $run );
+	}
+
+	/**
+	 * Upload everything and open the batch.
+	 *
+	 * @param int $chunks How many build chunks there were.
+	 * @param int $run    The run this action belongs to.
+	 * @return void
+	 */
+	public function handle_bulk_send( $chunks = 0, $run = 0 ) {
+		( new BulkRun() )->send( (int) $chunks, (int) $run );
+	}
+
+	/**
+	 * Ask whether the batch is finished.
+	 *
+	 * @param int $run The run this action belongs to.
+	 * @return void
+	 */
+	public function handle_bulk_poll( $run = 0 ) {
+		( new BulkRun() )->poll( (int) $run );
+	}
+
+	/**
+	 * Apply a slice of the finished answers.
+	 *
+	 * @param int $offset Which results to start from.
+	 * @param int $run    The run this action belongs to.
+	 * @return void
+	 */
+	public function handle_bulk_collect( $offset = 0, $run = 0 ) {
+		wp_defer_term_counting( true );
+
+		( new BulkRun() )->collect( (int) $offset, (int) $run );
+
+		wp_defer_term_counting( false );
 	}
 
 	/**

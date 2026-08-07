@@ -7,6 +7,7 @@
 
 namespace WooProductCategorizerAi\Admin;
 
+use WooProductCategorizerAi\Categorize\BulkRun;
 use WooProductCategorizerAi\Categorize\Revert;
 use WooProductCategorizerAi\Jobs\Preflight;
 use WooProductCategorizerAi\Jobs\Scheduler;
@@ -112,6 +113,13 @@ class Settings {
 			// Same reasoning. An empty string means "whatever the provider recommends".
 			'models'            => array(),
 
+			/*
+			 * Live by default. The bulk mode is cheaper and steadier, but it answers in
+			 * hours rather than minutes, and a default that leaves someone staring at a
+			 * progress bar until tomorrow is the wrong first impression.
+			 */
+			'execution_mode'    => 'live',
+
 			'max_depth'         => 3,
 			'guidance'          => '',
 			'scope'             => 'publish',
@@ -135,6 +143,38 @@ class Settings {
 			3 => __( '3 levels (recommended)', 'woo-product-categorizer-ai' ),
 			4 => __( '4 levels — only for a very large catalogue', 'woo-product-categorizer-ai' ),
 		);
+	}
+
+	/**
+	 * How a run gets its answers.
+	 *
+	 * @return array Mode => label.
+	 */
+	public static function execution_modes() {
+		return array(
+			'live' => __( 'Live — results in minutes', 'woo-product-categorizer-ai' ),
+			'bulk' => __( 'Bulk — half price, results within 24 hours', 'woo-product-categorizer-ai' ),
+		);
+	}
+
+	/**
+	 * Whether a run should go through the provider's bulk endpoint.
+	 *
+	 * False when the configured provider has no such endpoint, whatever is stored,
+	 * so switching to a provider that cannot do it degrades to a live run rather
+	 * than to a job that refuses to start.
+	 *
+	 * @param array|null $settings Settings to use, or null to read the stored ones.
+	 * @return bool
+	 */
+	public static function uses_bulk_mode( $settings = null ) {
+		$settings = is_array( $settings ) ? $settings : self::get_settings();
+
+		if ( 'bulk' !== ( isset( $settings['execution_mode'] ) ? $settings['execution_mode'] : 'live' ) ) {
+			return false;
+		}
+
+		return Providers::supports_batch( $settings );
 	}
 
 	/**
@@ -186,6 +226,7 @@ class Settings {
 		add_action( 'admin_post_wpcai_run_job', array( $this, 'handle_run_job' ) );
 		add_action( 'admin_post_wpcai_forget_revert', array( $this, 'handle_forget_revert' ) );
 		add_action( 'admin_post_wpcai_check_updates', array( $this, 'handle_check_updates' ) );
+		add_action( 'admin_post_wpcai_cancel_batch', array( $this, 'handle_cancel_batch' ) );
 
 		/*
 		 * A saved key or a switched provider invalidates whatever the last connection
@@ -256,6 +297,7 @@ class Settings {
 			'provider'          => $provider,
 			'api_keys'          => $this->pick_key( $input, $provider, $existing ),
 			'models'            => $this->pick_model( $input, $provider, $existing ),
+			'execution_mode'    => $this->pick_choice( $input, 'execution_mode', self::execution_modes(), $existing ),
 			'max_depth'         => (int) $this->pick_choice( $input, 'max_depth', self::depths(), $existing ),
 			'guidance'          => $this->pick_guidance( $input, $existing ),
 			'scope'             => $this->pick_choice( $input, 'scope', self::scopes(), $existing ),
@@ -685,6 +727,7 @@ class Settings {
 							 */
 							?>
 							<p class="wpcai-job-position"><?php echo esc_html( $this->describe_position( $status ) ); ?></p>
+							<?php $this->render_batch_state( $key ); ?>
 							<progress
 								class="wpcai-job-progress"
 								max="100"
@@ -930,6 +973,88 @@ class Settings {
 	}
 
 	/**
+	 * Say what a batch waiting at the provider is doing, and offer to stop it.
+	 *
+	 * A bulk run spends nearly all of its life in one state — waiting — with no
+	 * local work to report. Without this the screen would show a job that has been
+	 * "running" since yesterday with nothing to say about it.
+	 *
+	 * @param string $job Job key the row belongs to.
+	 * @return void
+	 */
+	protected function render_batch_state( $job ) {
+		if ( 'assign' !== $job ) {
+			return;
+		}
+
+		$flight = BulkRun::in_flight();
+
+		if ( empty( $flight ) ) {
+			return;
+		}
+
+		?>
+		<p class="description">
+			<?php
+			echo esc_html(
+				$flight['total'] > 0
+					? sprintf(
+						/* translators: 1: requests finished. 2: requests in total. 3: how long ago the batch was submitted. */
+						__( 'Waiting on the provider — %1$s of %2$s requests done, sent %3$s ago. You can close this page; it carries on without you.', 'woo-product-categorizer-ai' ),
+						number_format_i18n( (int) $flight['completed'] ),
+						number_format_i18n( (int) $flight['total'] ),
+						human_time_diff( (int) $flight['submitted'] )
+					)
+					: sprintf(
+						/* translators: %s: how long ago the batch was submitted. */
+						__( 'Waiting on the provider to accept the batch, sent %s ago. You can close this page; it carries on without you.', 'woo-product-categorizer-ai' ),
+						human_time_diff( (int) $flight['submitted'] )
+					)
+			);
+			?>
+		</p>
+		<form action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" method="post" class="wpcai-inline-form">
+			<input type="hidden" name="action" value="wpcai_cancel_batch" />
+			<?php wp_nonce_field( 'wpcai_cancel_batch' ); ?>
+			<button
+				type="submit"
+				class="button-link wpcai-danger"
+				data-wpcai-confirm="<?php echo esc_attr__( 'Stop this batch? Nothing has been written to your products yet, and nothing will be.', 'woo-product-categorizer-ai' ); ?>"
+			>
+				<?php echo esc_html__( 'Cancel this batch', 'woo-product-categorizer-ai' ); ?>
+			</button>
+		</form>
+		<?php
+	}
+
+	/**
+	 * Stop a batch waiting at the provider.
+	 *
+	 * @return void
+	 */
+	public function handle_cancel_batch() {
+		if ( ! current_user_can( self::CAPABILITY ) ) {
+			wp_die( esc_html__( 'You do not have permission to do that.', 'woo-product-categorizer-ai' ) );
+		}
+
+		check_admin_referer( 'wpcai_cancel_batch' );
+
+		$cancelled = ( new BulkRun() )->cancel();
+
+		wp_safe_redirect(
+			add_query_arg(
+				array(
+					'page'         => self::PAGE_SLUG,
+					'wpcai_notice' => is_wp_error( $cancelled ) ? $cancelled->get_error_code() : 'batch_cancelled',
+				),
+				admin_url( 'admin.php' )
+			)
+		);
+
+		exit;
+	}
+
+	/**
 	 * A sentence describing how a job last went.
 	 *
 	 * @param array $status Status array.
@@ -1048,7 +1173,7 @@ class Settings {
 			return;
 		}
 
-		$good  = in_array( $notice, array( 'queued', 'draft_saved', 'draft_discarded', 'draft_restored', 'terms_created' ), true );
+		$good  = in_array( $notice, array( 'queued', 'draft_saved', 'draft_discarded', 'draft_restored', 'terms_created', 'batch_cancelled' ), true );
 		$parts = array();
 
 		foreach ( $this->notice_counts() as $argument => $templates ) {
@@ -1095,6 +1220,9 @@ class Settings {
 			'no_backup'               => __( 'There is no previous draft to restore.', 'woo-product-categorizer-ai' ),
 			'revert_forgotten'        => __( 'Undo history cleared. Your categories are unchanged; the last run can no longer be reverted.', 'woo-product-categorizer-ai' ),
 			'wpcai_nothing_to_revert' => __( 'There is no completed run to undo.', 'woo-product-categorizer-ai' ),
+			'batch_cancelled'         => __( 'Batch cancelled. Nothing was written to your products.', 'woo-product-categorizer-ai' ),
+			'wpcai_nothing_in_flight' => __( 'There is no batch waiting to be cancelled.', 'woo-product-categorizer-ai' ),
+			'wpcai_no_batch_support'  => __( 'This provider cannot accept a whole catalogue at once.', 'woo-product-categorizer-ai' ),
 		);
 	}
 
@@ -1355,6 +1483,23 @@ class Settings {
 							<p class="description"><?php echo esc_html__( 'How this shop thinks about its catalogue — for example "organise by age group first, then by material", or "keep seasonal products together". Sent with every request, so it shapes both the proposed tree and how products are sorted into it.', 'woo-product-categorizer-ai' ); ?></p>
 						</td>
 					</tr>
+					<?php if ( Providers::supports_batch( $settings ) ) : ?>
+						<tr>
+							<th scope="row">
+								<label for="wpcai-execution-mode"><?php echo esc_html__( 'How to run it', 'woo-product-categorizer-ai' ); ?></label>
+							</th>
+							<td>
+								<select id="wpcai-execution-mode" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[execution_mode]">
+									<?php foreach ( self::execution_modes() as $value => $label ) : ?>
+										<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $settings['execution_mode'], $value ); ?>>
+											<?php echo esc_html( $label ); ?>
+										</option>
+									<?php endforeach; ?>
+								</select>
+								<p class="description"><?php echo esc_html__( 'Live sends the products a batch at a time and finishes in minutes. Bulk hands the whole catalogue over in one go: it costs half as much, cannot be rate-limited, and this page keeps you posted while you wait — but the answers may take up to 24 hours. Either way you can leave the page.', 'woo-product-categorizer-ai' ); ?></p>
+							</td>
+						</tr>
+					<?php endif; ?>
 					<tr>
 						<th scope="row">
 							<label for="wpcai-scope"><?php echo esc_html__( 'Products to categorise', 'woo-product-categorizer-ai' ); ?></label>

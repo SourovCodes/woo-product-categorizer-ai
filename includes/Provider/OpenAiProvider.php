@@ -20,7 +20,7 @@ defined( 'ABSPATH' ) || exit;
  * endpoint paths. Everything above it speaks the neutral vocabulary described on
  * ProviderInterface.
  */
-class OpenAiProvider implements ProviderInterface {
+class OpenAiProvider implements ProviderInterface, BatchProviderInterface {
 
 	/**
 	 * API root. No trailing slash.
@@ -54,6 +54,29 @@ class OpenAiProvider implements ProviderInterface {
 	 * the batch for a reason that has nothing to do with the request.
 	 */
 	const MAX_RETRY_AFTER = 60;
+
+	/**
+	 * The endpoint batched requests are executed against.
+	 *
+	 * The same one the live path uses, which is what lets both modes build their
+	 * request bodies with the same code.
+	 */
+	const BATCH_ENDPOINT = '/v1/responses';
+
+	/**
+	 * How long the provider is given to work through a batch.
+	 *
+	 * The only window OpenAI offers, and also the one the discount is attached to.
+	 */
+	const BATCH_WINDOW = '24h';
+
+	/**
+	 * How long to allow for moving the request or result file.
+	 *
+	 * A whole catalogue is megabytes in each direction, which is a different kind
+	 * of wait from asking a question.
+	 */
+	const UPLOAD_TIMEOUT = 300;
 
 	/**
 	 * How much bigger the output cap gets after a truncated answer.
@@ -438,11 +461,29 @@ class OpenAiProvider implements ProviderInterface {
 			);
 		}
 
+		return $this->payload_from_body( $decoded, $label, $attempt );
+	}
+
+	/**
+	 * Turn a decoded Responses body into a payload, or say why it cannot be.
+	 *
+	 * Split out of interpret_response() because the batch endpoint hands back
+	 * exactly this same body, one per line of its result file — verified against
+	 * the live API. Reusing it means a truncated answer, a missing message and a
+	 * malformed payload are all recognised identically whether they arrived over a
+	 * live request or hours later in a file.
+	 *
+	 * @param array  $decoded A decoded Responses API body.
+	 * @param string $label   Request label, for logging.
+	 * @param int    $attempt Attempt number, for logging.
+	 * @return array|WP_Error Payload and usage, or an error carrying a disposition.
+	 */
+	protected function payload_from_body( array $decoded, $label, $attempt = 1 ) {
 		/*
 		 * A truncated answer arrives as HTTP 200 with status "incomplete". Every check
-		 * above it passes, and the code below would then look for a message element
-		 * that is not there. This has to be tested before the output is walked, not
-		 * after.
+		 * before this one passes, and the code below would then look for a message
+		 * element that is not there. This has to be tested before the output is
+		 * walked, not after.
 		 */
 		if ( 'completed' !== ( isset( $decoded['status'] ) ? (string) $decoded['status'] : '' ) ) {
 			$reason = isset( $decoded['incomplete_details']['reason'] )
@@ -635,6 +676,360 @@ class OpenAiProvider implements ProviderInterface {
 		if ( $delay > 0 ) {
 			sleep( $delay );
 		}
+	}
+
+	/**
+	 * Hand over every request at once.
+	 *
+	 * Two calls: the requests go up as a JSONL file, then a batch is created
+	 * against it. The endpoint is the same /v1/responses the live path uses, so the
+	 * request bodies are built by exactly the same code and cannot drift.
+	 *
+	 * @param array $requests Custom id => a request in complete()'s shape.
+	 * @return string|WP_Error The batch id to poll with, or an error.
+	 */
+	public function submit_batch( array $requests ) {
+		$key = $this->get_api_key();
+
+		if ( is_wp_error( $key ) ) {
+			return $key;
+		}
+
+		$model = Providers::model( $this->settings );
+		$model = '' === $model ? self::recommended_model() : $model;
+		$lines = array();
+
+		foreach ( $requests as $custom_id => $request ) {
+			$cap = max( 256, (int) ( isset( $request['max_tokens'] ) ? $request['max_tokens'] : 4000 ) );
+
+			$lines[] = wp_json_encode(
+				array(
+					'custom_id' => (string) $custom_id,
+					'method'    => 'POST',
+					'url'       => self::BATCH_ENDPOINT,
+					'body'      => $this->build_body( $request, $model, $cap ),
+				)
+			);
+		}
+
+		if ( empty( $lines ) ) {
+			return new WP_Error(
+				'wpcai_empty_batch',
+				__( 'There was nothing to send.', 'woo-product-categorizer-ai' ),
+				array( 'disposition' => 'fail' )
+			);
+		}
+
+		$file_id = $this->upload_batch_file( implode( "\n", $lines ), $key );
+
+		if ( is_wp_error( $file_id ) ) {
+			return $file_id;
+		}
+
+		$response = wp_remote_post(
+			self::API_BASE . '/batches',
+			array(
+				'timeout' => self::REQUEST_TIMEOUT,
+				'headers' => $this->build_headers( $key ),
+				'body'    => wp_json_encode(
+					array(
+						'input_file_id'     => $file_id,
+						'endpoint'          => self::BATCH_ENDPOINT,
+						'completion_window' => self::BATCH_WINDOW,
+					)
+				),
+			)
+		);
+
+		$decoded = $this->decode_or_error( $response, 'batch create' );
+
+		if ( is_wp_error( $decoded ) ) {
+			return $decoded;
+		}
+
+		$batch_id = isset( $decoded['id'] ) ? (string) $decoded['id'] : '';
+
+		if ( '' === $batch_id ) {
+			return new WP_Error(
+				'wpcai_no_batch_id',
+				__( 'The AI provider accepted the batch but did not say what it was called.', 'woo-product-categorizer-ai' ),
+				array( 'disposition' => 'fail' )
+			);
+		}
+
+		$this->log( 'info', sprintf( 'Submitted batch %s with %d requests.', $batch_id, count( $lines ) ) );
+
+		return $batch_id;
+	}
+
+	/**
+	 * Upload the JSONL of requests.
+	 *
+	 * Built by hand rather than with a library, because this is the one place in
+	 * the plugin that needs multipart/form-data and WordPress has no helper for it.
+	 * The boundary is random so it cannot occur in the payload, and the body is
+	 * assembled with explicit CRLFs — a lone newline here is accepted by some
+	 * servers and rejected by others, which makes it exactly the kind of bug that
+	 * shows up only in production.
+	 *
+	 * @param string $jsonl The requests, one JSON object per line.
+	 * @param string $key   API key.
+	 * @return string|WP_Error The uploaded file's id.
+	 */
+	protected function upload_batch_file( $jsonl, $key ) {
+		$boundary = 'wpcai' . wp_generate_password( 24, false );
+		$eol      = "\r\n";
+
+		$body  = '--' . $boundary . $eol;
+		$body .= 'Content-Disposition: form-data; name="purpose"' . $eol . $eol;
+		$body .= 'batch' . $eol;
+		$body .= '--' . $boundary . $eol;
+		$body .= 'Content-Disposition: form-data; name="file"; filename="requests.jsonl"' . $eol;
+		$body .= 'Content-Type: application/jsonl' . $eol . $eol;
+		$body .= $jsonl . $eol;
+		$body .= '--' . $boundary . '--' . $eol;
+
+		$response = wp_remote_post(
+			self::API_BASE . '/files',
+			array(
+				// Uploading a few megabytes takes longer than asking a question does.
+				'timeout' => self::UPLOAD_TIMEOUT,
+				'headers' => array(
+					'Authorization' => 'Bearer ' . $key,
+					'Content-Type'  => 'multipart/form-data; boundary=' . $boundary,
+				),
+				'body'    => $body,
+			)
+		);
+
+		$decoded = $this->decode_or_error( $response, 'batch upload' );
+
+		if ( is_wp_error( $decoded ) ) {
+			return $decoded;
+		}
+
+		return isset( $decoded['id'] ) ? (string) $decoded['id'] : new WP_Error(
+			'wpcai_no_file_id',
+			__( 'The AI provider accepted the upload but did not say what it was called.', 'woo-product-categorizer-ai' ),
+			array( 'disposition' => 'fail' )
+		);
+	}
+
+	/**
+	 * Ask how a submitted batch is getting on.
+	 *
+	 * The vendor's status names are translated into the plugin's four here, so
+	 * nothing above this class ever learns what "finalizing" means.
+	 *
+	 * @param string $batch_id Batch to ask about.
+	 * @return array|WP_Error State and counts.
+	 */
+	public function poll_batch( $batch_id ) {
+		$decoded = $this->batch_request( 'GET', '/batches/' . rawurlencode( $batch_id ), null, 'batch poll' );
+
+		if ( is_wp_error( $decoded ) ) {
+			return $decoded;
+		}
+
+		$status = isset( $decoded['status'] ) ? (string) $decoded['status'] : '';
+		$counts = isset( $decoded['request_counts'] ) && is_array( $decoded['request_counts'] )
+			? $decoded['request_counts']
+			: array();
+
+		$states = array(
+			'validating'  => 'pending',
+			'in_progress' => 'pending',
+			'finalizing'  => 'pending',
+			'completed'   => 'done',
+			'failed'      => 'failed',
+			'expired'     => 'failed',
+			'cancelling'  => 'pending',
+			'cancelled'   => 'cancelled',
+		);
+
+		return array(
+			'state'     => isset( $states[ $status ] ) ? $states[ $status ] : 'pending',
+			'raw'       => $status,
+			'total'     => isset( $counts['total'] ) ? (int) $counts['total'] : 0,
+			'completed' => isset( $counts['completed'] ) ? (int) $counts['completed'] : 0,
+			'failed'    => isset( $counts['failed'] ) ? (int) $counts['failed'] : 0,
+		);
+	}
+
+	/**
+	 * Collect the finished results.
+	 *
+	 * Every line carries a body in the same shape a live response has, so each one
+	 * goes through payload_from_body() and is judged by exactly the same rules.
+	 *
+	 * @param string $batch_id Batch to collect.
+	 * @return array|WP_Error Custom id => result or per-request error.
+	 */
+	public function fetch_batch_results( $batch_id ) {
+		$batch = $this->batch_request( 'GET', '/batches/' . rawurlencode( $batch_id ), null, 'batch fetch' );
+
+		if ( is_wp_error( $batch ) ) {
+			return $batch;
+		}
+
+		$file_id = isset( $batch['output_file_id'] ) ? (string) $batch['output_file_id'] : '';
+
+		if ( '' === $file_id ) {
+			return new WP_Error(
+				'wpcai_no_output_file',
+				__( 'The batch finished without producing any results.', 'woo-product-categorizer-ai' ),
+				array( 'disposition' => 'fail' )
+			);
+		}
+
+		$key = $this->get_api_key();
+
+		if ( is_wp_error( $key ) ) {
+			return $key;
+		}
+
+		$response = wp_remote_get(
+			self::API_BASE . '/files/' . rawurlencode( $file_id ) . '/content',
+			array(
+				'timeout' => self::UPLOAD_TIMEOUT,
+				'headers' => $this->build_headers( $key ),
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
+			return new WP_Error( 'wpcai_transport_error', $response->get_error_message(), array( 'disposition' => 'retry' ) );
+		}
+
+		$status = (int) wp_remote_retrieve_response_code( $response );
+
+		if ( $status < 200 || $status >= 300 ) {
+			return $this->error_from_status( $status, json_decode( wp_remote_retrieve_body( $response ), true ) );
+		}
+
+		return $this->parse_batch_results( wp_remote_retrieve_body( $response ) );
+	}
+
+	/**
+	 * Read the JSONL result file into results keyed by custom id.
+	 *
+	 * @param string $jsonl The downloaded file.
+	 * @return array Custom id => payload/usage, or a WP_Error for that one request.
+	 */
+	protected function parse_batch_results( $jsonl ) {
+		$results = array();
+
+		foreach ( preg_split( '/\R/', (string) $jsonl ) as $line ) {
+			$line = trim( $line );
+
+			if ( '' === $line ) {
+				continue;
+			}
+
+			$row = json_decode( $line, true );
+
+			if ( ! is_array( $row ) || ! isset( $row['custom_id'] ) ) {
+				continue;
+			}
+
+			$custom_id = (string) $row['custom_id'];
+
+			// A request the provider itself refused, rather than one it answered badly.
+			if ( ! empty( $row['error'] ) ) {
+				$message = is_array( $row['error'] ) && isset( $row['error']['message'] )
+					? (string) $row['error']['message']
+					: __( 'The provider rejected this request.', 'woo-product-categorizer-ai' );
+
+				$results[ $custom_id ] = new WP_Error( 'wpcai_batch_request_error', $message, array( 'disposition' => 'fail' ) );
+				continue;
+			}
+
+			$code = isset( $row['response']['status_code'] ) ? (int) $row['response']['status_code'] : 0;
+			$body = isset( $row['response']['body'] ) && is_array( $row['response']['body'] ) ? $row['response']['body'] : array();
+
+			if ( $code < 200 || $code >= 300 ) {
+				$results[ $custom_id ] = $this->error_from_status( $code, $body );
+				continue;
+			}
+
+			$results[ $custom_id ] = $this->payload_from_body( $body, 'batch:' . $custom_id );
+		}
+
+		return $results;
+	}
+
+	/**
+	 * Stop a batch that has not finished.
+	 *
+	 * @param string $batch_id Batch to stop.
+	 * @return true|WP_Error
+	 */
+	public function cancel_batch( $batch_id ) {
+		$decoded = $this->batch_request( 'POST', '/batches/' . rawurlencode( $batch_id ) . '/cancel', array(), 'batch cancel' );
+
+		return is_wp_error( $decoded ) ? $decoded : true;
+	}
+
+	/**
+	 * One request against the batch endpoints.
+	 *
+	 * @param string     $method HTTP method.
+	 * @param string     $path   Path under the API base.
+	 * @param array|null $body   Optional JSON body.
+	 * @param string     $label  Label, for logging.
+	 * @return array|WP_Error Decoded body.
+	 */
+	protected function batch_request( $method, $path, $body, $label ) {
+		$key = $this->get_api_key();
+
+		if ( is_wp_error( $key ) ) {
+			return $key;
+		}
+
+		$args = array(
+			'method'  => $method,
+			'timeout' => self::REQUEST_TIMEOUT,
+			'headers' => $this->build_headers( $key ),
+		);
+
+		if ( null !== $body ) {
+			$args['body'] = wp_json_encode( $body );
+		}
+
+		return $this->decode_or_error( wp_remote_request( self::API_BASE . $path, $args ), $label );
+	}
+
+	/**
+	 * Decode a response, or turn it into the error it represents.
+	 *
+	 * @param array|WP_Error $response Raw response.
+	 * @param string         $label    Label, for logging.
+	 * @return array|WP_Error Decoded body.
+	 */
+	protected function decode_or_error( $response, $label ) {
+		if ( is_wp_error( $response ) ) {
+			$this->log( 'error', sprintf( '%s failed: %s', $label, $response->get_error_message() ) );
+
+			return new WP_Error( 'wpcai_transport_error', $response->get_error_message(), array( 'disposition' => 'retry' ) );
+		}
+
+		$status  = (int) wp_remote_retrieve_response_code( $response );
+		$decoded = json_decode( wp_remote_retrieve_body( $response ), true );
+
+		if ( $status < 200 || $status >= 300 ) {
+			$this->log( 'error', sprintf( '%s failed: HTTP %d.', $label, $status ) );
+
+			return $this->error_from_status( $status, $decoded );
+		}
+
+		if ( ! is_array( $decoded ) ) {
+			return new WP_Error(
+				'wpcai_invalid_json',
+				__( 'The AI provider returned a response that could not be decoded.', 'woo-product-categorizer-ai' ),
+				array( 'disposition' => 'retry' )
+			);
+		}
+
+		return $decoded;
 	}
 
 	/**
