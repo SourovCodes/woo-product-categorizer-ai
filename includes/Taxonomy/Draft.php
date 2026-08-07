@@ -284,6 +284,181 @@ class Draft {
 	}
 
 	/**
+	 * Rebuild the draft from an edit submitted by the screen.
+	 *
+	 * Several rules here are defensive rather than convenient, and each closes a
+	 * specific hole:
+	 *
+	 * - **The key is the join.** Only keys already in the stored draft are honoured.
+	 *   An unknown key is discarded rather than inserted, or a crafted POST could
+	 *   invent nodes with arbitrary parents at arbitrary depths.
+	 * - **The parent comes from the stored draft, never from the POST.** The rendered
+	 *   row carries data-parent for the script's benefit and the server ignores it.
+	 *   Re-parenting is not offered at all: moving a subtree around an HTML table
+	 *   without drag-and-drop is worse than deleting it and retyping the path, and
+	 *   accepting a submitted parent would mean validating for cycles and for depth
+	 *   on every save.
+	 * - **An absent node keeps its stored value**, the same rule the settings follow.
+	 *   Which is exactly why removal has to be an explicit checkbox: if absence meant
+	 *   deletion, a browser that dropped a field would silently delete a category.
+	 *
+	 * @param array  $stored  The draft as stored.
+	 * @param array  $rows    Submitted rows, keyed by node key.
+	 * @param string $additions Raw text from the additions box.
+	 * @param int    $depth   Deepest level allowed.
+	 * @return array The new draft and a count of what changed.
+	 */
+	public static function from_request( array $stored, array $rows, $additions, $depth ) {
+		$counts = array(
+			'renamed'  => 0,
+			'removed'  => 0,
+			'added'    => 0,
+			'rejected' => 0,
+		);
+
+		$kept = array();
+
+		foreach ( $stored['nodes'] as $node ) {
+			$key = $node['key'];
+
+			// Not submitted at all: keep it exactly as it was.
+			if ( ! isset( $rows[ $key ] ) || ! is_array( $rows[ $key ] ) ) {
+				$kept[] = $node;
+				continue;
+			}
+
+			$submitted = $rows[ $key ];
+
+			if ( ! empty( $submitted['remove'] ) ) {
+				++$counts['removed'];
+				continue;
+			}
+
+			$name = self::clean_name( isset( $submitted['name'] ) ? $submitted['name'] : '' );
+
+			// A blank name is the same request as ticking Remove, said differently.
+			if ( '' === $name ) {
+				++$counts['removed'];
+				continue;
+			}
+
+			if ( $name !== $node['name'] ) {
+				++$counts['renamed'];
+			}
+
+			$node['name'] = $name;
+			$kept[]       = $node;
+		}
+
+		/*
+		 * Normalised before the additions are parsed, so that a path typed into the
+		 * box is matched against the tree as it will actually be — a node removed in
+		 * this same submission must not be found and reused.
+		 */
+		$kept = self::normalise( $kept );
+
+		$added              = self::parse_additions( $kept, $additions, $depth );
+		$counts['added']    = $added['added'];
+		$counts['rejected'] = $added['rejected'];
+
+		$draft           = $stored;
+		$draft['nodes']  = self::normalise( $added['nodes'] );
+		$draft['edited'] = time();
+
+		return array(
+			'draft'  => $draft,
+			'counts' => $counts,
+		);
+	}
+
+	/**
+	 * Add the paths typed into the additions box.
+	 *
+	 * One path per line, `>` between the levels. Each line is walked from the root:
+	 * a segment that already exists among the current parent's children is reused
+	 * rather than duplicated, so typing "Wohnen > Deko > Kerzen" under an existing
+	 * "Wohnen" extends it instead of creating a second one. Matching is
+	 * case-insensitive, because someone typing a path from memory should not create
+	 * a near-duplicate over a capital letter.
+	 *
+	 * A line deeper than the configured maximum is rejected and counted rather than
+	 * silently truncated — quietly filing a category one level up from where someone
+	 * asked for it is worse than telling them it did not fit.
+	 *
+	 * @param array  $nodes Rows to add to.
+	 * @param string $text  Raw text from the box.
+	 * @param int    $depth Deepest level allowed.
+	 * @return array The rows, plus how many were added and rejected.
+	 */
+	protected static function parse_additions( array $nodes, $text, $depth ) {
+		$added    = 0;
+		$rejected = 0;
+		$lines    = preg_split( '/\R/', (string) $text );
+
+		foreach ( (array) $lines as $line ) {
+			$segments = array_filter( array_map( array( __CLASS__, 'clean_name' ), explode( '>', (string) $line ) ), 'strlen' );
+
+			if ( empty( $segments ) ) {
+				continue;
+			}
+
+			if ( count( $segments ) > (int) $depth ) {
+				++$rejected;
+				continue;
+			}
+
+			$parent = '';
+
+			foreach ( $segments as $segment ) {
+				$existing = self::find_child( $nodes, $parent, $segment );
+
+				if ( null !== $existing ) {
+					$parent = $existing;
+					continue;
+				}
+
+				$key = self::mint_key();
+
+				$nodes[] = array(
+					'key'    => $key,
+					'parent' => $parent,
+					'name'   => $segment,
+					'depth'  => 0,
+				);
+
+				$parent = $key;
+				++$added;
+			}
+		}
+
+		return array(
+			'nodes'    => $nodes,
+			'added'    => $added,
+			'rejected' => $rejected,
+		);
+	}
+
+	/**
+	 * Find a child of a given parent by name.
+	 *
+	 * @param array  $nodes      Rows to search.
+	 * @param string $parent_key Parent key, empty for the root.
+	 * @param string $name       Name to match, case-insensitively.
+	 * @return string|null The child's key, or null.
+	 */
+	protected static function find_child( array $nodes, $parent_key, $name ) {
+		$wanted = self::fold( $name );
+
+		foreach ( $nodes as $node ) {
+			if ( $node['parent'] === $parent_key && self::fold( $node['name'] ) === $wanted ) {
+				return $node['key'];
+			}
+		}
+
+		return null;
+	}
+
+	/**
 	 * Remove children that only repeat their parent's name.
 	 *
 	 * "Figuren > Figuren" is not a category tree, it is a node with a shadow. This

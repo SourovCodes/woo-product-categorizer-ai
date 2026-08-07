@@ -18,3 +18,55 @@
 	opacity: 0.6;
 	cursor: progress;
 }
+
+.wpcai-danger {
+	color: #b32d2e;
+}
+
+.wpcai-inline-form {
+	display: inline-block;
+	margin-right: 1.5em;
+}
+
+/*
+ * The tree's indentation is a class on the row rather than padding baked into the
+ * value, so the name field holds only the name.
+ */
+.wpcai-tree .wpcai-depth-2 .wpcai-node-name {
+	margin-left: 2em;
+}
+
+.wpcai-tree .wpcai-depth-3 .wpcai-node-name {
+	margin-left: 4em;
+}
+
+.wpcai-tree .wpcai-depth-4 .wpcai-node-name {
+	margin-left: 6em;
+}
+
+.wpcai-tree .wpcai-path {
+	display: inline-block;
+	margin-left: 1em;
+	background: none;
+	color: #646970;
+	font-size: 12px;
+}
+
+/* A row about to be removed, and everything under it, is shown as going. */
+.wpcai-tree .wpcai-removing {
+	opacity: 0.45;
+}
+
+.wpcai-tree .wpcai-removing .wpcai-node-name {
+	text-decoration: line-through;
+}
+
+.wpcai-tree-actions {
+	width: 6em;
+	text-align: center;
+}
+
+.wpcai-jobs .wpcai-job-progress {
+	width: 100%;
+	max-width: 24em;
+}

@@ -8,6 +8,7 @@
 namespace WooProductCategorizerAi;
 
 use WooProductCategorizerAi\Admin\Settings;
+use WooProductCategorizerAi\Admin\TaxonomyScreen;
 use WooProductCategorizerAi\Jobs\Scheduler;
 
 defined( 'ABSPATH' ) || exit;
@@ -96,6 +97,7 @@ final class Plugin {
 
 		if ( is_admin() ) {
 			( new Settings() )->register();
+			( new TaxonomyScreen() )->register();
 		}
 
 		/**

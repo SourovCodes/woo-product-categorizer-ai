@@ -463,6 +463,14 @@ class Settings {
 			true
 		);
 
+		wp_enqueue_script(
+			'wpcai-taxonomy-editor',
+			WPCAI_PLUGIN_URL . 'assets/js/taxonomy-editor.js',
+			array(),
+			WPCAI_VERSION,
+			true
+		);
+
 		wp_localize_script(
 			'wpcai-settings',
 			'wpcaiSettings',
@@ -798,10 +806,31 @@ class Settings {
 			return;
 		}
 
+		$good  = in_array( $notice, array( 'queued', 'draft_saved', 'draft_discarded', 'draft_restored' ), true );
+		$parts = array();
+
+		foreach ( $this->notice_counts() as $argument => $templates ) {
+			// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- reading a count to display, changing nothing.
+			$value = isset( $_GET[ $argument ] ) ? absint( wp_unslash( $_GET[ $argument ] ) ) : 0;
+
+			if ( $value > 0 ) {
+				$parts[] = sprintf(
+					1 === $value ? $templates['one'] : $templates['many'],
+					number_format_i18n( $value )
+				);
+			}
+		}
+
+		$message = $messages[ $notice ];
+
+		if ( ! empty( $parts ) ) {
+			$message .= ' ' . implode( ', ', $parts ) . '.';
+		}
+
 		printf(
 			'<div class="notice notice-%1$s is-dismissible"><p>%2$s</p></div>',
-			esc_attr( 'queued' === $notice ? 'success' : 'warning' ),
-			esc_html( $messages[ $notice ] )
+			esc_attr( $good ? 'success' : 'warning' ),
+			esc_html( $message )
 		);
 	}
 
@@ -816,6 +845,49 @@ class Settings {
 			'wpcai_already_running' => __( 'That job is already running.', 'woo-product-categorizer-ai' ),
 			'wpcai_unknown_job'     => __( 'That job does not exist.', 'woo-product-categorizer-ai' ),
 			'wpcai_no_scheduler'    => __( 'Action Scheduler is not available, so background jobs cannot run.', 'woo-product-categorizer-ai' ),
+			'draft_saved'           => __( 'Draft saved.', 'woo-product-categorizer-ai' ),
+			'draft_discarded'       => __( 'Draft discarded. Nothing in your shop changed.', 'woo-product-categorizer-ai' ),
+			'draft_restored'        => __( 'Your edited draft is back.', 'woo-product-categorizer-ai' ),
+			'no_draft'              => __( 'There is no draft to edit. Propose a category tree first.', 'woo-product-categorizer-ai' ),
+			'no_backup'             => __( 'There is no previous draft to restore.', 'woo-product-categorizer-ai' ),
+		);
+	}
+
+	/**
+	 * The counts a redirect may carry, and how each reads in a sentence.
+	 *
+	 * Kept apart from the codes above because these are assembled into one line
+	 * rather than chosen between. The numbers come from the query string, so they
+	 * are cast to int before they are formatted — the wording is always ours.
+	 *
+	 * @return array Query argument => singular/plural template.
+	 */
+	protected function notice_counts() {
+		return array(
+			'wpcai_renamed'  => array(
+				/* translators: %s: number of categories renamed. */
+				'one'  => __( '%s renamed', 'woo-product-categorizer-ai' ),
+				/* translators: %s: number of categories renamed. */
+				'many' => __( '%s renamed', 'woo-product-categorizer-ai' ),
+			),
+			'wpcai_removed'  => array(
+				/* translators: %s: number of categories removed. */
+				'one'  => __( '%s removed', 'woo-product-categorizer-ai' ),
+				/* translators: %s: number of categories removed. */
+				'many' => __( '%s removed', 'woo-product-categorizer-ai' ),
+			),
+			'wpcai_added'    => array(
+				/* translators: %s: number of categories added. */
+				'one'  => __( '%s added', 'woo-product-categorizer-ai' ),
+				/* translators: %s: number of categories added. */
+				'many' => __( '%s added', 'woo-product-categorizer-ai' ),
+			),
+			'wpcai_rejected' => array(
+				/* translators: %s: number of lines that were too deep. */
+				'one'  => __( '%s line was too deep to add', 'woo-product-categorizer-ai' ),
+				/* translators: %s: number of lines that were too deep. */
+				'many' => __( '%s lines were too deep to add', 'woo-product-categorizer-ai' ),
+			),
 		);
 	}
 
@@ -1081,6 +1153,7 @@ class Settings {
 				<?php submit_button(); ?>
 			</form>
 
+			<?php ( new TaxonomyScreen() )->render(); ?>
 			<?php $this->render_jobs_table(); ?>
 		</div>
 		<?php
