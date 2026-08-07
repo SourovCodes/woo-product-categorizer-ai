@@ -1,0 +1,20 @@
+/**
+ * Settings screen styles.
+ *
+ * Deliberately small. This screen is built out of core's own form-table markup, so
+ * it inherits the admin's look; what is here covers the few things core has no
+ * class for.
+ */
+
+.wpcai-ok {
+	color: #007017;
+}
+
+.wpcai-error {
+	color: #b32d2e;
+}
+
+.wpcai-busy {
+	opacity: 0.6;
+	cursor: progress;
+}

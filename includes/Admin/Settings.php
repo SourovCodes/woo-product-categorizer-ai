@@ -7,6 +7,10 @@
 
 namespace WooProductCategorizerAi\Admin;
 
+use WooProductCategorizerAi\Jobs\Preflight;
+use WooProductCategorizerAi\Provider\OpenAiProvider;
+use WooProductCategorizerAi\Provider\Providers;
+
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -157,15 +161,10 @@ class Settings {
 	/**
 	 * The providers the settings screen offers.
 	 *
-	 * Stubbed here until the provider registry lands; keeping the list in one place
-	 * means the sanitiser already rejects anything that is not a real choice.
-	 *
 	 * @return array Provider id => label.
 	 */
 	public static function providers() {
-		return array(
-			'openai' => __( 'OpenAI', 'woo-product-categorizer-ai' ),
-		);
+		return Providers::all();
 	}
 
 	/**
@@ -176,6 +175,16 @@ class Settings {
 	public function register() {
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
 		add_action( 'admin_menu', array( $this, 'register_menu' ) );
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
+		add_action( 'wp_ajax_wpcai_test_connection', array( $this, 'handle_test_connection' ) );
+		add_action( 'wp_ajax_wpcai_fetch_models', array( $this, 'handle_fetch_models' ) );
+
+		/*
+		 * A saved key or a switched provider invalidates whatever the last connection
+		 * test concluded. Without this the screen would keep reporting a provider as
+		 * reachable on the strength of a key that has since been replaced.
+		 */
+		add_action( 'update_option_' . self::OPTION_KEY, array( Preflight::class, 'forget_connection' ) );
 	}
 
 	/**
@@ -425,6 +434,164 @@ class Settings {
 	}
 
 	/**
+	 * Load the screen's own CSS and JS, and nothing anywhere else.
+	 *
+	 * @param string $hook_suffix The screen being rendered.
+	 * @return void
+	 */
+	public function enqueue_assets( $hook_suffix ) {
+		if ( '' === $this->hook_suffix || $hook_suffix !== $this->hook_suffix ) {
+			return;
+		}
+
+		wp_enqueue_style(
+			'wpcai-settings',
+			WPCAI_PLUGIN_URL . 'assets/css/settings.css',
+			array(),
+			WPCAI_VERSION
+		);
+
+		wp_enqueue_script(
+			'wpcai-settings',
+			WPCAI_PLUGIN_URL . 'assets/js/settings.js',
+			array(),
+			WPCAI_VERSION,
+			true
+		);
+
+		wp_localize_script(
+			'wpcai-settings',
+			'wpcaiSettings',
+			array(
+				'ajaxUrl'         => admin_url( 'admin-ajax.php' ),
+
+				/*
+				 * A nonce per action rather than one shared across them. They authorise
+				 * different things — one spends a request against a submitted key, the
+				 * other only reads — and a single nonce would make them interchangeable.
+				 */
+				'testNonce'       => wp_create_nonce( 'wpcai_test_connection' ),
+				'modelsNonce'     => wp_create_nonce( 'wpcai_fetch_models' ),
+
+				/*
+				 * Every string lives here rather than in the JS, so there is no separate
+				 * JSON catalogue to build and ship for the script.
+				 */
+				'testing'         => __( 'Testing the connection…', 'woo-product-categorizer-ai' ),
+				'testFailed'      => __( 'The connection test could not be completed.', 'woo-product-categorizer-ai' ),
+				'connected'       => __( 'Connected. The key works.', 'woo-product-categorizer-ai' ),
+				'fetchingModels'  => __( 'Fetching the models your account can use…', 'woo-product-categorizer-ai' ),
+				'modelsFailed'    => __( 'The model list could not be fetched.', 'woo-product-categorizer-ai' ),
+				'modelsLoaded'    => __( 'Models loaded. Choose one, then save the settings.', 'woo-product-categorizer-ai' ),
+				'recommendedName' => __( 'Recommended', 'woo-product-categorizer-ai' ),
+				'otherName'       => __( 'Other models on your account', 'woo-product-categorizer-ai' ),
+				'providerDefault' => __( '— Use the recommended model —', 'woo-product-categorizer-ai' ),
+			)
+		);
+	}
+
+	/**
+	 * Test the provider connection over AJAX.
+	 *
+	 * @return void
+	 */
+	public function handle_test_connection() {
+		check_ajax_referer( 'wpcai_test_connection', 'nonce' );
+
+		if ( ! current_user_can( self::CAPABILITY ) ) {
+			wp_send_json_error( array( 'message' => __( 'You do not have permission to do that.', 'woo-product-categorizer-ai' ) ), 403 );
+		}
+
+		$provider = Providers::get( $this->settings_from_request() );
+
+		if ( is_wp_error( $provider ) ) {
+			wp_send_json_error( array( 'message' => $provider->get_error_message() ) );
+		}
+
+		$result = $provider->test_connection();
+
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+		}
+
+		wp_send_json_success( array( 'message' => __( 'Connected. The key works.', 'woo-product-categorizer-ai' ) ) );
+	}
+
+	/**
+	 * Fetch the models the account can use, over AJAX.
+	 *
+	 * @return void
+	 */
+	public function handle_fetch_models() {
+		check_ajax_referer( 'wpcai_fetch_models', 'nonce' );
+
+		if ( ! current_user_can( self::CAPABILITY ) ) {
+			wp_send_json_error( array( 'message' => __( 'You do not have permission to do that.', 'woo-product-categorizer-ai' ) ), 403 );
+		}
+
+		$provider = Providers::get( $this->settings_from_request() );
+
+		if ( is_wp_error( $provider ) ) {
+			wp_send_json_error( array( 'message' => $provider->get_error_message() ) );
+		}
+
+		$models = $provider->list_models();
+
+		if ( is_wp_error( $models ) ) {
+			wp_send_json_error( array( 'message' => $models->get_error_message() ) );
+		}
+
+		$curated = $provider::curated_models();
+		$labels  = array();
+
+		foreach ( $models['recommended'] as $model_id ) {
+			$labels[ $model_id ] = isset( $curated[ $model_id ] ) ? $curated[ $model_id ] : $model_id;
+		}
+
+		wp_send_json_success(
+			array(
+				'recommended' => $labels,
+				'other'       => $models['other'],
+			)
+		);
+	}
+
+	/**
+	 * Build the settings a handler should act on.
+	 *
+	 * Both buttons have to work on a key that has been typed but not yet saved —
+	 * otherwise testing a new key means saving it first, and finding out it is wrong
+	 * afterwards. A key submitted with the request therefore overrides the stored
+	 * one for the duration of that request only; nothing here writes.
+	 *
+	 * @return array Settings to act on.
+	 */
+	protected function settings_from_request() {
+		$settings = self::get_settings();
+
+		/*
+		 * The nonce is verified by the calling handler, which is why the sniff cannot
+		 * see it from in here.
+		 */
+		// phpcs:disable WordPress.Security.NonceVerification.Missing
+		$submitted_provider = isset( $_POST['provider'] ) ? sanitize_text_field( wp_unslash( $_POST['provider'] ) ) : '';
+
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitize_api_key() is the sanitiser; sanitize_text_field() would corrupt the key.
+		$submitted_key = isset( $_POST['api_key'] ) ? self::sanitize_api_key( wp_unslash( $_POST['api_key'] ) ) : '';
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+
+		if ( '' !== $submitted_provider && array_key_exists( $submitted_provider, Providers::all() ) ) {
+			$settings['provider'] = $submitted_provider;
+		}
+
+		if ( '' !== $submitted_key ) {
+			$settings['api_keys'][ $settings['provider'] ] = $submitted_key;
+		}
+
+		return $settings;
+	}
+
+	/**
 	 * Render the settings screen.
 	 *
 	 * @return void
@@ -435,12 +602,113 @@ class Settings {
 		}
 
 		$settings = self::get_settings();
+		$provider = $settings['provider'];
+
+		$stored_key   = isset( $settings['api_keys'][ $provider ] ) ? (string) $settings['api_keys'][ $provider ] : '';
+		$stored_model = isset( $settings['models'][ $provider ] ) ? (string) $settings['models'][ $provider ] : '';
+
+		$classes           = Providers::classes();
+		$recommended_model = isset( $classes[ $provider ] )
+			? $classes[ $provider ]::recommended_model()
+			: OpenAiProvider::recommended_model();
 		?>
 		<div class="wrap">
 			<h1><?php echo esc_html__( 'Product Categorizer AI', 'woo-product-categorizer-ai' ); ?></h1>
 
 			<form action="options.php" method="post">
 				<?php settings_fields( self::OPTION_GROUP ); ?>
+
+				<h2><?php echo esc_html__( 'AI provider', 'woo-product-categorizer-ai' ); ?></h2>
+				<table class="form-table" role="presentation">
+					<tr>
+						<th scope="row">
+							<label for="wpcai-provider"><?php echo esc_html__( 'Provider', 'woo-product-categorizer-ai' ); ?></label>
+						</th>
+						<td>
+							<select id="wpcai-provider" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[provider]">
+								<?php foreach ( self::providers() as $value => $label ) : ?>
+									<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $settings['provider'], $value ); ?>>
+										<?php echo esc_html( $label ); ?>
+									</option>
+								<?php endforeach; ?>
+							</select>
+							<p class="description"><?php echo esc_html__( 'Each provider keeps its own key and model, so switching between them does not lose either.', 'woo-product-categorizer-ai' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">
+							<label for="wpcai-api-key"><?php echo esc_html__( 'API key', 'woo-product-categorizer-ai' ); ?></label>
+						</th>
+						<td>
+							<?php
+							/*
+							 * Rendered empty, always. Echoing a stored secret back into the
+							 * page puts it in the DOM, in the browser cache and in any
+							 * screenshot of this screen, for no benefit — nobody needs to
+							 * read a key they already saved.
+							 */
+							?>
+							<input
+								type="password"
+								class="regular-text"
+								id="wpcai-api-key"
+								name="<?php echo esc_attr( self::OPTION_KEY ); ?>[api_key]"
+								value=""
+								autocomplete="new-password"
+							/>
+							<button type="button" class="button" id="wpcai-test-connection">
+								<?php echo esc_html__( 'Test connection', 'woo-product-categorizer-ai' ); ?>
+							</button>
+							<p class="description">
+								<?php
+								echo esc_html(
+									'' === $stored_key
+										? __( 'No key stored yet. Sent as a bearer token, and never written to the log.', 'woo-product-categorizer-ai' )
+										: __( 'A key is stored. Leave this field blank to keep it.', 'woo-product-categorizer-ai' )
+								);
+								?>
+							</p>
+							<p class="description" id="wpcai-connection-result" aria-live="polite"></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">
+							<label for="wpcai-model"><?php echo esc_html__( 'Model', 'woo-product-categorizer-ai' ); ?></label>
+						</th>
+						<td>
+							<select id="wpcai-model" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[model]">
+								<option value=""><?php echo esc_html__( '— Use the recommended model —', 'woo-product-categorizer-ai' ); ?></option>
+								<?php
+								/*
+								 * The stored model is rendered as a selected option before
+								 * anyone fetches anything, so a saved value survives a reload
+								 * without a network call. Fetching only ever adds to this.
+								 */
+								?>
+								<?php if ( '' !== $stored_model ) : ?>
+									<option value="<?php echo esc_attr( $stored_model ); ?>" selected>
+										<?php echo esc_html( $stored_model ); ?>
+									</option>
+								<?php endif; ?>
+							</select>
+							<button type="button" class="button" id="wpcai-fetch-models">
+								<?php echo esc_html__( 'Fetch models', 'woo-product-categorizer-ai' ); ?>
+							</button>
+							<p class="description">
+								<?php
+								echo esc_html(
+									sprintf(
+										/* translators: %s: the model id used when none is chosen. */
+										__( 'Leave this on the default to follow the provider\'s recommendation, currently %s. A mini model is usually right: sorting a product into a fixed list of categories is classification, not reasoning.', 'woo-product-categorizer-ai' ),
+										$recommended_model
+									)
+								);
+								?>
+							</p>
+							<p class="description" id="wpcai-models-result" aria-live="polite"></p>
+						</td>
+					</tr>
+				</table>
 
 				<h2><?php echo esc_html__( 'Categorisation', 'woo-product-categorizer-ai' ); ?></h2>
 				<table class="form-table" role="presentation">
