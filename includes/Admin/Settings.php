@@ -8,6 +8,8 @@
 namespace WooProductCategorizerAi\Admin;
 
 use WooProductCategorizerAi\Jobs\Preflight;
+use WooProductCategorizerAi\Jobs\Scheduler;
+use WooProductCategorizerAi\Jobs\Status;
 use WooProductCategorizerAi\Provider\OpenAiProvider;
 use WooProductCategorizerAi\Provider\Providers;
 
@@ -178,6 +180,8 @@ class Settings {
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 		add_action( 'wp_ajax_wpcai_test_connection', array( $this, 'handle_test_connection' ) );
 		add_action( 'wp_ajax_wpcai_fetch_models', array( $this, 'handle_fetch_models' ) );
+		add_action( 'wp_ajax_wpcai_job_progress', array( $this, 'handle_job_progress' ) );
+		add_action( 'admin_post_wpcai_run_job', array( $this, 'handle_run_job' ) );
 
 		/*
 		 * A saved key or a switched provider invalidates whatever the last connection
@@ -463,29 +467,36 @@ class Settings {
 			'wpcai-settings',
 			'wpcaiSettings',
 			array(
-				'ajaxUrl'         => admin_url( 'admin-ajax.php' ),
+				'ajaxUrl'          => admin_url( 'admin-ajax.php' ),
 
 				/*
 				 * A nonce per action rather than one shared across them. They authorise
 				 * different things — one spends a request against a submitted key, the
 				 * other only reads — and a single nonce would make them interchangeable.
 				 */
-				'testNonce'       => wp_create_nonce( 'wpcai_test_connection' ),
-				'modelsNonce'     => wp_create_nonce( 'wpcai_fetch_models' ),
+				'testNonce'        => wp_create_nonce( 'wpcai_test_connection' ),
+				'modelsNonce'      => wp_create_nonce( 'wpcai_fetch_models' ),
+				'progressNonce'    => wp_create_nonce( 'wpcai_job_progress' ),
+
+				/*
+				 * How often a running job is re-read, in milliseconds. One option read
+				 * per poll, and only while something is actually running.
+				 */
+				'progressInterval' => 5000,
 
 				/*
 				 * Every string lives here rather than in the JS, so there is no separate
 				 * JSON catalogue to build and ship for the script.
 				 */
-				'testing'         => __( 'Testing the connection…', 'woo-product-categorizer-ai' ),
-				'testFailed'      => __( 'The connection test could not be completed.', 'woo-product-categorizer-ai' ),
-				'connected'       => __( 'Connected. The key works.', 'woo-product-categorizer-ai' ),
-				'fetchingModels'  => __( 'Fetching the models your account can use…', 'woo-product-categorizer-ai' ),
-				'modelsFailed'    => __( 'The model list could not be fetched.', 'woo-product-categorizer-ai' ),
-				'modelsLoaded'    => __( 'Models loaded. Choose one, then save the settings.', 'woo-product-categorizer-ai' ),
-				'recommendedName' => __( 'Recommended', 'woo-product-categorizer-ai' ),
-				'otherName'       => __( 'Other models on your account', 'woo-product-categorizer-ai' ),
-				'providerDefault' => __( '— Use the recommended model —', 'woo-product-categorizer-ai' ),
+				'testing'          => __( 'Testing the connection…', 'woo-product-categorizer-ai' ),
+				'testFailed'       => __( 'The connection test could not be completed.', 'woo-product-categorizer-ai' ),
+				'connected'        => __( 'Connected. The key works.', 'woo-product-categorizer-ai' ),
+				'fetchingModels'   => __( 'Fetching the models your account can use…', 'woo-product-categorizer-ai' ),
+				'modelsFailed'     => __( 'The model list could not be fetched.', 'woo-product-categorizer-ai' ),
+				'modelsLoaded'     => __( 'Models loaded. Choose one, then save the settings.', 'woo-product-categorizer-ai' ),
+				'recommendedName'  => __( 'Recommended', 'woo-product-categorizer-ai' ),
+				'otherName'        => __( 'Other models on your account', 'woo-product-categorizer-ai' ),
+				'providerDefault'  => __( '— Use the recommended model —', 'woo-product-categorizer-ai' ),
 			)
 		);
 	}
@@ -557,6 +568,258 @@ class Settings {
 	}
 
 	/**
+	 * Queue a job to run immediately.
+	 *
+	 * @return void
+	 */
+	public function handle_run_job() {
+		if ( ! current_user_can( self::CAPABILITY ) ) {
+			wp_die( esc_html__( 'You do not have permission to do that.', 'woo-product-categorizer-ai' ) );
+		}
+
+		$job = isset( $_POST['job'] ) ? sanitize_key( wp_unslash( $_POST['job'] ) ) : '';
+
+		check_admin_referer( 'wpcai_run_job_' . $job );
+
+		$queued = Scheduler::trigger( $job );
+
+		/*
+		 * The redirect carries a code, never a message. Putting the text in the URL
+		 * would mean the screen echoes back a string that arrived from outside it, and
+		 * would make every refusal a translation that happens in the wrong place.
+		 */
+		$notice = is_wp_error( $queued ) ? $queued->get_error_code() : 'queued';
+
+		wp_safe_redirect(
+			add_query_arg(
+				array(
+					'page'         => self::PAGE_SLUG,
+					'wpcai_notice' => $notice,
+				),
+				admin_url( 'admin.php' )
+			)
+		);
+
+		exit;
+	}
+
+	/**
+	 * Report how the running jobs are getting on, over AJAX.
+	 *
+	 * @return void
+	 */
+	public function handle_job_progress() {
+		check_ajax_referer( 'wpcai_job_progress', 'nonce' );
+
+		if ( ! current_user_can( self::CAPABILITY ) ) {
+			wp_send_json_error( array( 'message' => __( 'You do not have permission to do that.', 'woo-product-categorizer-ai' ) ), 403 );
+		}
+
+		$jobs = array();
+
+		foreach ( array_keys( Scheduler::get_jobs() ) as $job ) {
+			$status = Status::get( $job );
+
+			$jobs[ $job ] = array(
+				'state'      => $status['state'],
+				'running'    => Status::is_running( $job ),
+				'percentage' => Status::percentage( $status ),
+				'summary'    => $this->describe_status( $status ),
+				'position'   => $this->describe_position( $status ),
+			);
+		}
+
+		wp_send_json_success( array( 'jobs' => $jobs ) );
+	}
+
+	/**
+	 * Render the table of jobs, their state and their Run buttons.
+	 *
+	 * @return void
+	 */
+	protected function render_jobs_table() {
+		?>
+		<h2><?php echo esc_html__( 'Jobs', 'woo-product-categorizer-ai' ); ?></h2>
+		<table class="widefat striped wpcai-jobs">
+			<thead>
+				<tr>
+					<th scope="col"><?php echo esc_html__( 'Job', 'woo-product-categorizer-ai' ); ?></th>
+					<th scope="col"><?php echo esc_html__( 'Last run', 'woo-product-categorizer-ai' ); ?></th>
+					<th scope="col"><?php echo esc_html__( 'Run', 'woo-product-categorizer-ai' ); ?></th>
+				</tr>
+			</thead>
+			<tbody>
+				<?php foreach ( Scheduler::get_jobs() as $key => $job ) : ?>
+					<?php
+					$status  = Status::get( $key );
+					$running = Status::is_running( $key );
+					$percent = Status::percentage( $status );
+					?>
+					<tr data-wpcai-job="<?php echo esc_attr( $key ); ?>">
+						<td>
+							<strong><?php echo esc_html( $job['label'] ); ?></strong>
+							<p class="description"><?php echo esc_html( $job['description'] ); ?></p>
+						</td>
+						<td>
+							<p class="wpcai-job-summary"><?php echo esc_html( $this->describe_status( $status ) ); ?></p>
+							<?php
+							/*
+							 * A bar only where there is something to measure against. A run
+							 * that cannot report a total gets the position line instead of a
+							 * progress element stuck at zero, which reads as broken.
+							 */
+							?>
+							<p class="wpcai-job-position"><?php echo esc_html( $this->describe_position( $status ) ); ?></p>
+							<progress
+								class="wpcai-job-progress"
+								max="100"
+								<?php echo null === $percent ? '' : 'value="' . esc_attr( $percent ) . '"'; ?>
+								<?php echo $running ? '' : 'hidden'; ?>
+							></progress>
+						</td>
+						<td>
+							<form action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" method="post">
+								<input type="hidden" name="action" value="wpcai_run_job" />
+								<input type="hidden" name="job" value="<?php echo esc_attr( $key ); ?>" />
+								<?php wp_nonce_field( 'wpcai_run_job_' . $key ); ?>
+								<button type="submit" class="button" <?php disabled( $running ); ?>>
+									<?php echo esc_html__( 'Run now', 'woo-product-categorizer-ai' ); ?>
+								</button>
+							</form>
+						</td>
+					</tr>
+				<?php endforeach; ?>
+			</tbody>
+		</table>
+		<?php
+	}
+
+	/**
+	 * A sentence describing how a job last went.
+	 *
+	 * @param array $status Status array.
+	 * @return string
+	 */
+	protected function describe_status( array $status ) {
+		if ( 'never' === $status['state'] ) {
+			return __( 'Never run.', 'woo-product-categorizer-ai' );
+		}
+
+		if ( 'running' === $status['state'] ) {
+			return __( 'Running now.', 'woo-product-categorizer-ai' );
+		}
+
+		$when = wp_date(
+			get_option( 'date_format' ) . ' ' . get_option( 'time_format' ),
+			(int) $status['finished']
+		);
+
+		$prefix = 'success' === $status['state']
+			/* translators: %s: date and time the run finished. */
+			? sprintf( __( 'Succeeded at %s.', 'woo-product-categorizer-ai' ), $when )
+			/* translators: %s: date and time the run failed. */
+			: sprintf( __( 'Failed at %s.', 'woo-product-categorizer-ai' ), $when );
+
+		return '' === $status['message'] ? $prefix : $prefix . ' ' . $status['message'];
+	}
+
+	/**
+	 * A line describing where a running job has got to.
+	 *
+	 * @param array $status Status array.
+	 * @return string
+	 */
+	protected function describe_position( array $status ) {
+		if ( 'running' !== $status['state'] ) {
+			return $this->describe_tokens( $status );
+		}
+
+		$total = (int) $status['total'];
+
+		if ( $total < 1 ) {
+			return __( 'Working…', 'woo-product-categorizer-ai' );
+		}
+
+		return sprintf(
+			/* translators: 1: records handled so far. 2: records in total. */
+			__( '%1$s of %2$s.', 'woo-product-categorizer-ai' ),
+			number_format_i18n( (int) $status['processed'] ),
+			number_format_i18n( $total )
+		);
+	}
+
+	/**
+	 * What a finished run cost, in tokens.
+	 *
+	 * Reported in tokens and never in money. Prices move, they differ per model and
+	 * per account, and a confidently wrong number about what something cost is worse
+	 * than no number at all. The cached share is worth showing because it is the one
+	 * figure that tells you prompt caching is working.
+	 *
+	 * @param array $status Status array.
+	 * @return string
+	 */
+	protected function describe_tokens( array $status ) {
+		$counts = isset( $status['counts'] ) ? (array) $status['counts'] : array();
+		$input  = isset( $counts['input_tokens'] ) ? (int) $counts['input_tokens'] : 0;
+
+		if ( $input < 1 ) {
+			return '';
+		}
+
+		$output = isset( $counts['output_tokens'] ) ? (int) $counts['output_tokens'] : 0;
+		$cached = isset( $counts['cached_tokens'] ) ? (int) $counts['cached_tokens'] : 0;
+
+		return sprintf(
+			/* translators: 1: input tokens. 2: percentage served from cache. 3: output tokens. */
+			__( '%1$s input tokens (%2$d%% from cache), %3$s output.', 'woo-product-categorizer-ai' ),
+			number_format_i18n( $input ),
+			(int) floor( ( $cached / $input ) * 100 ),
+			number_format_i18n( $output )
+		);
+	}
+
+	/**
+	 * Show the outcome of whatever the last Run button did.
+	 *
+	 * @return void
+	 */
+	protected function render_queued_notice() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- reading a status code to display, changing nothing.
+		$notice = isset( $_GET['wpcai_notice'] ) ? sanitize_key( wp_unslash( $_GET['wpcai_notice'] ) ) : '';
+
+		if ( '' === $notice ) {
+			return;
+		}
+
+		$messages = $this->notice_messages();
+
+		if ( ! isset( $messages[ $notice ] ) ) {
+			return;
+		}
+
+		printf(
+			'<div class="notice notice-%1$s is-dismissible"><p>%2$s</p></div>',
+			esc_attr( 'queued' === $notice ? 'success' : 'warning' ),
+			esc_html( $messages[ $notice ] )
+		);
+	}
+
+	/**
+	 * Every notice the screen can show, keyed by the code a redirect carries.
+	 *
+	 * @return array Code => message.
+	 */
+	protected function notice_messages() {
+		return array(
+			'queued'                => __( 'Queued. It will start within a minute, and this page will update as it goes.', 'woo-product-categorizer-ai' ),
+			'wpcai_already_running' => __( 'That job is already running.', 'woo-product-categorizer-ai' ),
+			'wpcai_unknown_job'     => __( 'That job does not exist.', 'woo-product-categorizer-ai' ),
+			'wpcai_no_scheduler'    => __( 'Action Scheduler is not available, so background jobs cannot run.', 'woo-product-categorizer-ai' ),
+		);
+	}
+
+	/**
 	 * Build the settings a handler should act on.
 	 *
 	 * Both buttons have to work on a key that has been typed but not yet saved —
@@ -614,6 +877,8 @@ class Settings {
 		?>
 		<div class="wrap">
 			<h1><?php echo esc_html__( 'Product Categorizer AI', 'woo-product-categorizer-ai' ); ?></h1>
+
+			<?php $this->render_queued_notice(); ?>
 
 			<form action="options.php" method="post">
 				<?php settings_fields( self::OPTION_GROUP ); ?>
@@ -815,6 +1080,8 @@ class Settings {
 
 				<?php submit_button(); ?>
 			</form>
+
+			<?php $this->render_jobs_table(); ?>
 		</div>
 		<?php
 	}

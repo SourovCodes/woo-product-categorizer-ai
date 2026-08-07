@@ -211,8 +211,132 @@
 		} );
 	}
 
+	/**
+	 * Apply one job's reported state to its row.
+	 *
+	 * @param {HTMLElement} row   The job's table row.
+	 * @param {Object}      state What the server reported.
+	 * @return {void}
+	 */
+	function paintJob( row, state ) {
+		var summary = row.querySelector( '.wpcai-job-summary' );
+		var position = row.querySelector( '.wpcai-job-position' );
+		var bar = row.querySelector( '.wpcai-job-progress' );
+		var button = row.querySelector( 'button[type="submit"]' );
+
+		if ( summary ) {
+			summary.textContent = state.summary;
+		}
+
+		if ( position ) {
+			position.textContent = state.position;
+		}
+
+		if ( bar ) {
+			bar.hidden = ! state.running;
+
+			// An indeterminate bar is what "running, but I cannot say how far" looks
+			// like. Removing the attribute is the only way to get one.
+			if ( null === state.percentage ) {
+				bar.removeAttribute( 'value' );
+			} else {
+				bar.value = state.percentage;
+			}
+		}
+
+		if ( button ) {
+			button.disabled = state.running;
+		}
+	}
+
+	/**
+	 * Poll for job progress while anything is running, and stop when nothing is.
+	 *
+	 * @return {void}
+	 */
+	function bindProgressPoll() {
+		var rows = document.querySelectorAll( '[data-wpcai-job]' );
+		var timer = null;
+
+		if ( ! rows.length ) {
+			return;
+		}
+
+		/**
+		 * Whether any row is currently showing a running job.
+		 *
+		 * @return {boolean} True when something is in flight.
+		 */
+		function anythingRunning() {
+			return Array.prototype.some.call( rows, function ( row ) {
+				var button = row.querySelector( 'button[type="submit"]' );
+				return button && button.disabled;
+			} );
+		}
+
+		/**
+		 * Ask the server where everything has got to.
+		 *
+		 * @return {void}
+		 */
+		function poll() {
+			var body = new FormData();
+
+			send( 'wpcai_job_progress', wpcaiSettings.progressNonce, body )
+				.then( function ( response ) {
+					var wasRunning = anythingRunning();
+
+					if ( ! response || ! response.success ) {
+						return;
+					}
+
+					Array.prototype.forEach.call( rows, function ( row ) {
+						var state = response.data.jobs[ row.getAttribute( 'data-wpcai-job' ) ];
+
+						if ( state ) {
+							paintJob( row, state );
+						}
+					} );
+
+					// A job that has just finished may have produced a draft to review,
+					// and that is rendered by PHP. Reload rather than trying to build it
+					// here — one implementation of that markup, not two.
+					if ( wasRunning && ! anythingRunning() ) {
+						window.location.reload();
+						return;
+					}
+
+					if ( anythingRunning() ) {
+						timer = window.setTimeout( poll, wpcaiSettings.progressInterval );
+					}
+				} )
+				.catch( function () {
+					// Stop rather than hammer a server that is not answering.
+					window.clearTimeout( timer );
+				} );
+		}
+
+		if ( anythingRunning() ) {
+			timer = window.setTimeout( poll, wpcaiSettings.progressInterval );
+		}
+
+		// A job queued from this page starts a moment later, so begin polling on
+		// submit rather than waiting for the next page load to notice.
+		Array.prototype.forEach.call( rows, function ( row ) {
+			var form = row.querySelector( 'form' );
+
+			if ( form ) {
+				form.addEventListener( 'submit', function () {
+					window.clearTimeout( timer );
+					timer = window.setTimeout( poll, wpcaiSettings.progressInterval );
+				} );
+			}
+		} );
+	}
+
 	document.addEventListener( 'DOMContentLoaded', function () {
 		bindConnectionTest();
 		bindModelFetch();
+		bindProgressPoll();
 	} );
 }() );

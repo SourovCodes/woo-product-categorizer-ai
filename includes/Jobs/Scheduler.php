@@ -8,6 +8,7 @@
 namespace WooProductCategorizerAi\Jobs;
 
 use Exception;
+use WooProductCategorizerAi\Taxonomy\Proposal;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -126,6 +127,11 @@ class Scheduler {
 	 * @return void
 	 */
 	public function register() {
+		add_action( self::ACTION_PROPOSE, array( $this, 'handle_propose' ) );
+		add_action( self::ACTION_PROPOSE_SAMPLE, array( $this, 'handle_propose_sample' ), 10, 1 );
+		add_action( self::ACTION_PROPOSE_ASK, array( $this, 'handle_propose_ask' ), 10, 1 );
+		add_action( self::ACTION_PROPOSE_FINALISE, array( $this, 'handle_propose_finalise' ), 10, 1 );
+
 		/*
 		 * A dead chain cannot report its own failure: the action that would have
 		 * called finish() or fail() is the one that just died. Without these three,
@@ -135,6 +141,89 @@ class Scheduler {
 		add_action( 'action_scheduler_failed_execution', array( $this, 'handle_failed_execution' ), 10, 2 );
 		add_action( 'action_scheduler_failed_action', array( $this, 'handle_timed_out_action' ), 10, 1 );
 		add_action( 'action_scheduler_unexpected_shutdown', array( $this, 'handle_unexpected_shutdown' ), 10, 2 );
+	}
+
+	/**
+	 * The jobs the settings screen offers a button for.
+	 *
+	 * One registry, iterated by the jobs table, the run handler and the progress
+	 * poll alike, so a job cannot appear in one and be missing from another.
+	 *
+	 * @return array Job key => label, description and starting action.
+	 */
+	public static function get_jobs() {
+		return array(
+			'taxonomy' => array(
+				'label'       => __( 'Propose a category tree', 'woo-product-categorizer-ai' ),
+				'description' => __( 'Reads a representative sample of your catalogue and asks the model to design a category tree. Nothing is created until you review it and press Create categories.', 'woo-product-categorizer-ai' ),
+				'action'      => self::ACTION_PROPOSE,
+			),
+		);
+	}
+
+	/**
+	 * Queue a job to run immediately.
+	 *
+	 * @param string $job Job key.
+	 * @return true|\WP_Error True when the job was queued.
+	 */
+	public static function trigger( $job ) {
+		$jobs = self::get_jobs();
+
+		if ( ! isset( $jobs[ $job ] ) ) {
+			return new \WP_Error( 'wpcai_unknown_job', __( 'That job does not exist.', 'woo-product-categorizer-ai' ) );
+		}
+
+		if ( ! self::is_available() ) {
+			return new \WP_Error( 'wpcai_no_scheduler', __( 'Action Scheduler is not available, so background jobs cannot run.', 'woo-product-categorizer-ai' ) );
+		}
+
+		if ( Status::is_running( $job ) ) {
+			return new \WP_Error( 'wpcai_already_running', __( 'That job is already running.', 'woo-product-categorizer-ai' ) );
+		}
+
+		as_enqueue_async_action( $jobs[ $job ]['action'], array(), self::GROUP, false, self::PRIORITY_DEFAULT );
+
+		return true;
+	}
+
+	/**
+	 * Start a taxonomy proposal.
+	 *
+	 * @return void
+	 */
+	public function handle_propose() {
+		( new Proposal() )->start();
+	}
+
+	/**
+	 * Collect the catalogue sample.
+	 *
+	 * @param int $run The run this action belongs to.
+	 * @return void
+	 */
+	public function handle_propose_sample( $run = 0 ) {
+		( new Proposal() )->sample( (int) $run );
+	}
+
+	/**
+	 * Ask the provider for a tree.
+	 *
+	 * @param int $run The run this action belongs to.
+	 * @return void
+	 */
+	public function handle_propose_ask( $run = 0 ) {
+		( new Proposal() )->ask( (int) $run );
+	}
+
+	/**
+	 * Close out the proposal.
+	 *
+	 * @param int $run The run this action belongs to.
+	 * @return void
+	 */
+	public function handle_propose_finalise( $run = 0 ) {
+		( new Proposal() )->finalise( (int) $run );
 	}
 
 	/**
