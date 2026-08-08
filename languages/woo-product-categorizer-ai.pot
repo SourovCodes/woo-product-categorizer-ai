@@ -2,14 +2,14 @@
 # This file is distributed under the GPL-2.0-or-later.
 msgid ""
 msgstr ""
-"Project-Id-Version: Woo Product Categorizer AI 0.1.0\n"
+"Project-Id-Version: Woo Product Categorizer AI 0.2.1\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/woo-product-categorizer-ai\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-08-07T22:53:33+00:00\n"
+"POT-Creation-Date: 2026-08-08T02:22:07+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: woo-product-categorizer-ai\n"
@@ -75,7 +75,7 @@ msgid "50 products per request"
 msgstr ""
 
 #: includes/Admin/Settings.php:264
-#: includes/Admin/Settings.php:1355
+#: includes/Admin/Settings.php:1375
 msgid "Product Categorizer AI"
 msgstr ""
 
@@ -117,7 +117,7 @@ msgid "Other models on your account"
 msgstr ""
 
 #: includes/Admin/Settings.php:553
-#: includes/Admin/Settings.php:1422
+#: includes/Admin/Settings.php:1442
 msgid "— Use the recommended model —"
 msgstr ""
 
@@ -125,419 +125,421 @@ msgstr ""
 #: includes/Admin/Settings.php:594
 #: includes/Admin/Settings.php:631
 #: includes/Admin/Settings.php:669
-#: includes/Admin/Settings.php:829
-#: includes/Admin/Settings.php:857
-#: includes/Admin/Settings.php:1037
+#: includes/Admin/Settings.php:839
+#: includes/Admin/Settings.php:867
+#: includes/Admin/Settings.php:1047
 #: includes/Admin/TaxonomyScreen.php:132
 msgid "You do not have permission to do that."
 msgstr ""
 
-#: includes/Admin/Settings.php:696
+#: includes/Admin/Settings.php:706
 msgid "Jobs"
 msgstr ""
 
-#: includes/Admin/Settings.php:700
+#: includes/Admin/Settings.php:710
 msgid "Job"
 msgstr ""
 
-#: includes/Admin/Settings.php:701
+#: includes/Admin/Settings.php:711
 msgid "Last run"
 msgstr ""
 
-#: includes/Admin/Settings.php:702
+#: includes/Admin/Settings.php:712
 msgid "Run"
 msgstr ""
 
-#: includes/Admin/Settings.php:744
+#: includes/Admin/Settings.php:754
 msgid "Run now"
 msgstr ""
 
-#: includes/Admin/Settings.php:775
+#: includes/Admin/Settings.php:785
 msgid "Undo"
 msgstr ""
 
-#: includes/Admin/Settings.php:789
+#: includes/Admin/Settings.php:799
 msgid "Put every product this run touched back to the categories it had before? Nothing else changes."
 msgstr ""
 
 #. translators: 1: number of products. 2: date the run finished.
-#: includes/Admin/Settings.php:795
+#: includes/Admin/Settings.php:805
 #, php-format
 msgid "Revert the run of %2$s (%1$s products)"
 msgstr ""
 
-#: includes/Admin/Settings.php:810
+#: includes/Admin/Settings.php:820
 msgid "Forget what the categories were before the last run? The categories themselves stay exactly as they are, but the run can no longer be undone."
 msgstr ""
 
-#: includes/Admin/Settings.php:812
+#: includes/Admin/Settings.php:822
 msgid "Forget revert history"
 msgstr ""
 
-#: includes/Admin/Settings.php:817
+#: includes/Admin/Settings.php:827
 msgid "Each product remembers the categories it had before the last run. Keeping that costs a little database space; forgetting it frees the space and gives up the undo."
 msgstr ""
 
-#: includes/Admin/Settings.php:889
+#: includes/Admin/Settings.php:899
 msgid "Updates"
 msgstr ""
 
-#: includes/Admin/Settings.php:893
+#: includes/Admin/Settings.php:903
 msgid "Installed version"
 msgstr ""
 
-#: includes/Admin/Settings.php:897
+#: includes/Admin/Settings.php:907
 msgid "Latest release"
 msgstr ""
 
-#: includes/Admin/Settings.php:903
+#: includes/Admin/Settings.php:913
 msgid "install it from the plugins screen"
 msgstr ""
 
-#: includes/Admin/Settings.php:906
-#: includes/Admin/Settings.php:957
+#: includes/Admin/Settings.php:916
+#: includes/Admin/Settings.php:967
 msgid "This is the newest release."
 msgstr ""
 
-#: includes/Admin/Settings.php:908
+#: includes/Admin/Settings.php:918
 msgid "Not known. Nothing has checked yet, or the last check could not reach GitHub."
 msgstr ""
 
-#: includes/Admin/Settings.php:918
+#: includes/Admin/Settings.php:928
 msgid "Check for updates"
 msgstr ""
 
-#: includes/Admin/Settings.php:921
+#: includes/Admin/Settings.php:931
 msgid "WordPress looks for plugin updates about twice a day and reuses that answer in between, so a release published since the last look does not appear on its own. This discards what was cached and asks again."
 msgstr ""
 
 #. translators: %s: version number of the release that was found.
-#: includes/Admin/Settings.php:945
+#: includes/Admin/Settings.php:955
 #, php-format
 msgid "Version %s is available. Install it from the plugins screen."
 msgstr ""
 
-#: includes/Admin/Settings.php:971
+#: includes/Admin/Settings.php:981
 msgid "The release could not be checked. GitHub or WordPress.org could not be reached; try again in a moment."
 msgstr ""
 
 #. translators: 1: requests finished. 2: requests in total. 3: how long ago the batch was submitted.
-#: includes/Admin/Settings.php:1003
+#: includes/Admin/Settings.php:1013
 #, php-format
 msgid "Waiting on the provider — %1$s of %2$s requests done, sent %3$s ago. You can close this page; it carries on without you."
 msgstr ""
 
 #. translators: %s: how long ago the batch was submitted.
-#: includes/Admin/Settings.php:1010
+#: includes/Admin/Settings.php:1020
 #, php-format
 msgid "Waiting on the provider to accept the batch, sent %s ago. You can close this page; it carries on without you."
 msgstr ""
 
-#: includes/Admin/Settings.php:1022
+#: includes/Admin/Settings.php:1032
 msgid "Stop this batch? Nothing has been written to your products yet, and nothing will be."
 msgstr ""
 
-#: includes/Admin/Settings.php:1024
+#: includes/Admin/Settings.php:1034
 msgid "Cancel this batch"
 msgstr ""
 
-#: includes/Admin/Settings.php:1065
+#: includes/Admin/Settings.php:1075
 msgid "Never run."
 msgstr ""
 
-#: includes/Admin/Settings.php:1069
-msgid "Running now."
+#. translators: %s: how long ago the run started, e.g. "3 hours".
+#: includes/Admin/Settings.php:1087
+#, php-format
+msgid "Running now, started %s ago."
 msgstr ""
 
 #. translators: %s: date and time the run finished.
-#: includes/Admin/Settings.php:1079
+#: includes/Admin/Settings.php:1099
 #, php-format
 msgid "Succeeded at %s."
 msgstr ""
 
 #. translators: %s: date and time the run failed.
-#: includes/Admin/Settings.php:1081
+#: includes/Admin/Settings.php:1101
 #, php-format
 msgid "Failed at %s."
 msgstr ""
 
-#: includes/Admin/Settings.php:1100
+#: includes/Admin/Settings.php:1120
 msgid "Working…"
 msgstr ""
 
 #. translators: 1: records handled so far. 2: records in total.
-#: includes/Admin/Settings.php:1105
+#: includes/Admin/Settings.php:1125
 #, php-format
 msgid "%1$s of %2$s."
 msgstr ""
 
 #. translators: 1: input tokens used. 2: output tokens used.
-#: includes/Admin/Settings.php:1141
+#: includes/Admin/Settings.php:1161
 #, php-format
 msgid "%1$s input tokens, %2$s output."
 msgstr ""
 
 #. translators: %d: percentage of input tokens served from the provider's cache.
-#: includes/Admin/Settings.php:1149
+#: includes/Admin/Settings.php:1169
 #, php-format
 msgid "%d%% of the input was served from cache."
 msgstr ""
 
-#: includes/Admin/Settings.php:1211
+#: includes/Admin/Settings.php:1231
 msgid "Queued. It will start within a minute, and this page will update as it goes."
 msgstr ""
 
-#: includes/Admin/Settings.php:1212
-#: includes/Jobs/Scheduler.php:250
+#: includes/Admin/Settings.php:1232
+#: includes/Jobs/Scheduler.php:286
 msgid "That job is already running."
 msgstr ""
 
-#: includes/Admin/Settings.php:1213
-#: includes/Jobs/Scheduler.php:242
+#: includes/Admin/Settings.php:1233
+#: includes/Jobs/Scheduler.php:278
 msgid "That job does not exist."
 msgstr ""
 
-#: includes/Admin/Settings.php:1214
-#: includes/Jobs/Scheduler.php:246
+#: includes/Admin/Settings.php:1234
+#: includes/Jobs/Scheduler.php:282
 msgid "Action Scheduler is not available, so background jobs cannot run."
 msgstr ""
 
-#: includes/Admin/Settings.php:1215
+#: includes/Admin/Settings.php:1235
 msgid "Draft saved."
 msgstr ""
 
-#: includes/Admin/Settings.php:1216
+#: includes/Admin/Settings.php:1236
 msgid "Categories created."
 msgstr ""
 
-#: includes/Admin/Settings.php:1217
+#: includes/Admin/Settings.php:1237
 msgid "Draft discarded. Nothing in your shop changed."
 msgstr ""
 
-#: includes/Admin/Settings.php:1218
+#: includes/Admin/Settings.php:1238
 msgid "Your edited draft is back."
 msgstr ""
 
-#: includes/Admin/Settings.php:1219
+#: includes/Admin/Settings.php:1239
 msgid "There is no draft to edit. Propose a category tree first."
 msgstr ""
 
-#: includes/Admin/Settings.php:1220
+#: includes/Admin/Settings.php:1240
 msgid "There is no previous draft to restore."
 msgstr ""
 
-#: includes/Admin/Settings.php:1221
+#: includes/Admin/Settings.php:1241
 msgid "Undo history cleared. Your categories are unchanged; the last run can no longer be reverted."
 msgstr ""
 
-#: includes/Admin/Settings.php:1222
+#: includes/Admin/Settings.php:1242
 #: includes/Jobs/Preflight.php:146
 msgid "There is no completed run to undo."
 msgstr ""
 
-#: includes/Admin/Settings.php:1223
+#: includes/Admin/Settings.php:1243
 msgid "Batch cancelled. Nothing was written to your products."
 msgstr ""
 
-#: includes/Admin/Settings.php:1224
+#: includes/Admin/Settings.php:1244
 #: includes/Categorize/BulkRun.php:670
 msgid "There is no batch waiting to be cancelled."
 msgstr ""
 
-#: includes/Admin/Settings.php:1225
+#: includes/Admin/Settings.php:1245
 msgid "This provider cannot accept a whole catalogue at once."
 msgstr ""
 
-#: includes/Admin/Settings.php:1226
-#: includes/Jobs/Scheduler.php:265
+#: includes/Admin/Settings.php:1246
+#: includes/Jobs/Scheduler.php:301
 msgid "A batch for this job is still with the provider. Wait for it, or cancel it first."
 msgstr ""
 
 #. translators: %s: number of categories renamed.
-#: includes/Admin/Settings.php:1243
-#: includes/Admin/Settings.php:1245
+#: includes/Admin/Settings.php:1263
+#: includes/Admin/Settings.php:1265
 #, php-format
 msgid "%s renamed"
 msgstr ""
 
 #. translators: %s: number of categories removed.
-#: includes/Admin/Settings.php:1249
-#: includes/Admin/Settings.php:1251
+#: includes/Admin/Settings.php:1269
+#: includes/Admin/Settings.php:1271
 #, php-format
 msgid "%s removed"
 msgstr ""
 
 #. translators: %s: number of categories added.
-#: includes/Admin/Settings.php:1255
-#: includes/Admin/Settings.php:1257
+#: includes/Admin/Settings.php:1275
+#: includes/Admin/Settings.php:1277
 #, php-format
 msgid "%s added"
 msgstr ""
 
 #. translators: %s: number of lines that were too deep.
-#: includes/Admin/Settings.php:1261
+#: includes/Admin/Settings.php:1281
 #, php-format
 msgid "%s line was too deep to add"
 msgstr ""
 
 #. translators: %s: number of lines that were too deep.
-#: includes/Admin/Settings.php:1263
+#: includes/Admin/Settings.php:1283
 #, php-format
 msgid "%s lines were too deep to add"
 msgstr ""
 
 #. translators: %s: number of categories created.
-#: includes/Admin/Settings.php:1267
-#: includes/Admin/Settings.php:1269
+#: includes/Admin/Settings.php:1287
+#: includes/Admin/Settings.php:1289
 #, php-format
 msgid "%s created"
 msgstr ""
 
 #. translators: %s: number of existing categories taken over.
-#: includes/Admin/Settings.php:1273
+#: includes/Admin/Settings.php:1293
 #, php-format
 msgid "%s already existed and is now managed here"
 msgstr ""
 
 #. translators: %s: number of existing categories taken over.
-#: includes/Admin/Settings.php:1275
+#: includes/Admin/Settings.php:1295
 #, php-format
 msgid "%s already existed and are now managed here"
 msgstr ""
 
 #. translators: %s: number of categories left untouched.
-#: includes/Admin/Settings.php:1279
-#: includes/Admin/Settings.php:1281
+#: includes/Admin/Settings.php:1299
+#: includes/Admin/Settings.php:1301
 #, php-format
 msgid "%s unchanged"
 msgstr ""
 
 #. translators: %s: number of categories that could not be created.
-#: includes/Admin/Settings.php:1285
-#: includes/Admin/Settings.php:1287
+#: includes/Admin/Settings.php:1305
+#: includes/Admin/Settings.php:1307
 #, php-format
 msgid "%s could not be created"
 msgstr ""
 
 #. translators: %s: number of products whose undo history was cleared.
-#: includes/Admin/Settings.php:1291
+#: includes/Admin/Settings.php:1311
 #, php-format
 msgid "%s product cleared"
 msgstr ""
 
 #. translators: %s: number of products whose undo history was cleared.
-#: includes/Admin/Settings.php:1293
+#: includes/Admin/Settings.php:1313
 #, php-format
 msgid "%s products cleared"
 msgstr ""
 
-#: includes/Admin/Settings.php:1340
+#: includes/Admin/Settings.php:1360
 msgid "You do not have permission to manage these settings."
 msgstr ""
 
-#: includes/Admin/Settings.php:1363
+#: includes/Admin/Settings.php:1383
 msgid "AI provider"
 msgstr ""
 
-#: includes/Admin/Settings.php:1367
+#: includes/Admin/Settings.php:1387
 msgid "Provider"
 msgstr ""
 
-#: includes/Admin/Settings.php:1377
+#: includes/Admin/Settings.php:1397
 msgid "Each provider keeps its own key and model, so switching between them does not lose either."
 msgstr ""
 
-#: includes/Admin/Settings.php:1382
+#: includes/Admin/Settings.php:1402
 msgid "API key"
 msgstr ""
 
-#: includes/Admin/Settings.php:1402
+#: includes/Admin/Settings.php:1422
 msgid "Test connection"
 msgstr ""
 
-#: includes/Admin/Settings.php:1408
+#: includes/Admin/Settings.php:1428
 msgid "No key stored yet. Sent as a bearer token, and never written to the log."
 msgstr ""
 
-#: includes/Admin/Settings.php:1409
+#: includes/Admin/Settings.php:1429
 msgid "A key is stored. Leave this field blank to keep it."
 msgstr ""
 
-#: includes/Admin/Settings.php:1418
+#: includes/Admin/Settings.php:1438
 msgid "Model"
 msgstr ""
 
-#: includes/Admin/Settings.php:1437
+#: includes/Admin/Settings.php:1457
 msgid "Fetch models"
 msgstr ""
 
 #. translators: %s: the model id used when none is chosen.
-#: includes/Admin/Settings.php:1444
+#: includes/Admin/Settings.php:1464
 #, php-format
 msgid "Leave this on the default to follow the provider's recommendation, currently %s. A mini model is usually right: sorting a product into a fixed list of categories is classification, not reasoning."
 msgstr ""
 
-#: includes/Admin/Settings.php:1455
+#: includes/Admin/Settings.php:1475
 msgid "Categorisation"
 msgstr ""
 
-#: includes/Admin/Settings.php:1459
+#: includes/Admin/Settings.php:1479
 msgid "Category depth"
 msgstr ""
 
-#: includes/Admin/Settings.php:1469
+#: includes/Admin/Settings.php:1489
 msgid "The deepest the proposed tree may go. It is a limit, not a target — a smaller catalogue will come back shallower."
 msgstr ""
 
-#: includes/Admin/Settings.php:1474
+#: includes/Admin/Settings.php:1494
 msgid "Your guidance"
 msgstr ""
 
-#: includes/Admin/Settings.php:1484
+#: includes/Admin/Settings.php:1504
 msgid "How this shop thinks about its catalogue — for example \"organise by age group first, then by material\", or \"keep seasonal products together\". Sent with every request, so it shapes both the proposed tree and how products are sorted into it."
 msgstr ""
 
-#: includes/Admin/Settings.php:1490
+#: includes/Admin/Settings.php:1510
 msgid "How to run it"
 msgstr ""
 
-#: includes/Admin/Settings.php:1500
+#: includes/Admin/Settings.php:1520
 msgid "Live sends the products a batch at a time and finishes in minutes. Bulk hands the whole catalogue over in one go: it costs half as much, cannot be rate-limited, and this page keeps you posted while you wait — but the answers may take up to 24 hours. Either way you can leave the page."
 msgstr ""
 
-#: includes/Admin/Settings.php:1506
+#: includes/Admin/Settings.php:1526
 msgid "Products to categorise"
 msgstr ""
 
-#: includes/Admin/Settings.php:1519
+#: includes/Admin/Settings.php:1539
 msgid "Existing categories"
 msgstr ""
 
-#: includes/Admin/Settings.php:1537
+#: includes/Admin/Settings.php:1557
 msgid "Replace the categories a product already has"
 msgstr ""
 
-#: includes/Admin/Settings.php:1539
+#: includes/Admin/Settings.php:1559
 msgid "On by default. Turn this off to leave already-categorised products alone — they are then skipped without being sent to the model at all."
 msgstr ""
 
-#: includes/Admin/Settings.php:1543
+#: includes/Admin/Settings.php:1563
 msgid "Dry run"
 msgstr ""
 
-#: includes/Admin/Settings.php:1553
+#: includes/Admin/Settings.php:1573
 msgid "Report what would happen without changing anything"
 msgstr ""
 
-#: includes/Admin/Settings.php:1555
+#: includes/Admin/Settings.php:1575
 msgid "The run asks the model and counts the results exactly as a real run would, but writes nothing. A dry run leaves nothing to revert."
 msgstr ""
 
-#: includes/Admin/Settings.php:1560
+#: includes/Admin/Settings.php:1580
 msgid "Batch size"
 msgstr ""
 
-#: includes/Admin/Settings.php:1570
+#: includes/Admin/Settings.php:1590
 msgid "Larger batches make fewer requests but risk the model running out of room to answer, which costs the whole batch. 25 is a good balance."
 msgstr ""
 
@@ -750,28 +752,32 @@ msgstr ""
 msgid "Puts every product the last run touched back to the categories it had before."
 msgstr ""
 
-#: includes/Jobs/Scheduler.php:452
+#: includes/Jobs/Scheduler.php:488
 msgid "an unknown error"
 msgstr ""
 
 #. translators: %s: error message.
-#: includes/Jobs/Scheduler.php:457
+#: includes/Jobs/Scheduler.php:493
 #, php-format
 msgid "The run stopped because a background task failed: %s"
 msgstr ""
 
-#: includes/Jobs/Scheduler.php:470
+#: includes/Jobs/Scheduler.php:506
 msgid "The run stopped because a background task took too long and was abandoned."
 msgstr ""
 
-#: includes/Jobs/Scheduler.php:482
+#: includes/Jobs/Scheduler.php:518
 msgid "a fatal error"
 msgstr ""
 
 #. translators: %s: error message.
-#: includes/Jobs/Scheduler.php:487
+#: includes/Jobs/Scheduler.php:523
 #, php-format
 msgid "The run stopped because a background task ended unexpectedly: %s"
+msgstr ""
+
+#: includes/Jobs/Status.php:267
+msgid "Interrupted: the run stopped without reporting an outcome, and nothing has moved it forward since. Nothing was left half-written — run it again when you are ready."
 msgstr ""
 
 #: includes/Provider/OpenAiProvider.php:157
@@ -795,7 +801,7 @@ msgid "GPT-5.5 — the most capable, and the most expensive"
 msgstr ""
 
 #: includes/Provider/OpenAiProvider.php:459
-#: includes/Provider/OpenAiProvider.php:1027
+#: includes/Provider/OpenAiProvider.php:1024
 msgid "The AI provider returned a response that could not be decoded."
 msgstr ""
 
@@ -827,19 +833,19 @@ msgstr ""
 msgid "The AI provider accepted the batch but did not say what it was called."
 msgstr ""
 
-#: includes/Provider/OpenAiProvider.php:813
+#: includes/Provider/OpenAiProvider.php:810
 msgid "The AI provider accepted the upload but did not say what it was called."
 msgstr ""
 
-#: includes/Provider/OpenAiProvider.php:880
+#: includes/Provider/OpenAiProvider.php:877
 msgid "The batch finished without producing any results."
 msgstr ""
 
-#: includes/Provider/OpenAiProvider.php:940
+#: includes/Provider/OpenAiProvider.php:937
 msgid "The provider rejected this request."
 msgstr ""
 
-#: includes/Provider/OpenAiProvider.php:1071
+#: includes/Provider/OpenAiProvider.php:1068
 msgid "No OpenAI API key has been saved yet."
 msgstr ""
 

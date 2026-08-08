@@ -232,6 +232,24 @@ class ProviderTest extends WP_UnitTestCase {
 	}
 
 	/**
+	 * The one header that says which site the traffic came from. Without it a shop
+	 * asking the provider about its own rate limits has nothing to identify itself
+	 * by, and the omission is invisible until that conversation happens.
+	 *
+	 * @return void
+	 */
+	public function test_every_request_identifies_the_plugin_and_the_site() {
+		$this->will_respond( 200, $this->completed( array( 'ok' => true ) ) );
+
+		$this->provider()->complete( $this->request() );
+
+		$agent = $this->requests[0]['args']['headers']['User-Agent'];
+
+		$this->assertStringStartsWith( 'WooProductCategorizerAi/' . WPCAI_VERSION, $agent );
+		$this->assertStringContainsString( home_url( '/' ), $agent );
+	}
+
+	/**
 	 * A truncated answer arrives as HTTP 200. Every status check passes, so without
 	 * an explicit test on the status field the code walks an output array that has
 	 * no message in it.

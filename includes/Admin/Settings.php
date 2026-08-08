@@ -669,6 +669,8 @@ class Settings {
 			wp_send_json_error( array( 'message' => __( 'You do not have permission to do that.', 'woo-product-categorizer-ai' ) ), 403 );
 		}
 
+		Scheduler::reap_stranded_runs();
+
 		$jobs = array();
 
 		foreach ( array_keys( Scheduler::get_jobs() ) as $job ) {
@@ -692,6 +694,14 @@ class Settings {
 	 * @return void
 	 */
 	protected function render_jobs_table() {
+		/*
+		 * Before anything is drawn. A run whose chain died has nothing left to correct
+		 * the record, so the screen would otherwise report it as in progress for as
+		 * long as the option survives — and disable the button that would start it
+		 * again for the first six hours of that.
+		 */
+		Scheduler::reap_stranded_runs();
+
 		?>
 		<h2><?php echo esc_html__( 'Jobs', 'woo-product-categorizer-ai' ); ?></h2>
 		<table class="widefat striped wpcai-jobs">
@@ -1065,8 +1075,18 @@ class Settings {
 			return __( 'Never run.', 'woo-product-categorizer-ai' );
 		}
 
+		/*
+		 * The elapsed time is the whole value of this line. A bare "Running now" is
+		 * indistinguishable from a run that died an hour ago, and the reaper cannot
+		 * help before the timeout — so until then, how long it has been saying this is
+		 * the only signal anyone has that something is wrong.
+		 */
 		if ( 'running' === $status['state'] ) {
-			return __( 'Running now.', 'woo-product-categorizer-ai' );
+			return sprintf(
+				/* translators: %s: how long ago the run started, e.g. "3 hours". */
+				__( 'Running now, started %s ago.', 'woo-product-categorizer-ai' ),
+				human_time_diff( (int) $status['started'] )
+			);
 		}
 
 		$when = wp_date(

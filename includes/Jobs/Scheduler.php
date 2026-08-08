@@ -230,6 +230,42 @@ class Scheduler {
 	}
 
 	/**
+	 * Close out any run whose chain has died without saying so.
+	 *
+	 * The three Action Scheduler failure hooks catch a run that died where Action
+	 * Scheduler could see it: a thrown exception, a fatal, an action given up on.
+	 * They cannot catch a chain that simply stopped — a successor that was never
+	 * queued, or a queue that stopped being processed at all — and in that case
+	 * nothing is left to report an outcome. Those runs are reaped here, on the
+	 * timeout, by whoever next looks at the job.
+	 *
+	 * A batch sitting at the provider is deliberately exempt. It may legitimately
+	 * wait a full day, four times longer than the timeout allows a run to look
+	 * alive, and reaping it would report a healthy run as broken and strand the
+	 * record that the Cancel button needs. That case already has its own way out.
+	 *
+	 * @return string[] Job keys that were closed out.
+	 */
+	public static function reap_stranded_runs() {
+		$reaped = array();
+		$flight = BulkRun::in_flight();
+
+		foreach ( array_keys( self::get_jobs() ) as $job ) {
+			if ( ! empty( $flight ) && BulkRun::JOB === $job ) {
+				continue;
+			}
+
+			if ( Status::reap( $job ) ) {
+				$reaped[] = $job;
+
+				self::log( 'error', sprintf( '%s run reaped: it stopped without reporting an outcome.', $job ) );
+			}
+		}
+
+		return $reaped;
+	}
+
+	/**
 	 * Queue a job to run immediately.
 	 *
 	 * @param string $job Job key.

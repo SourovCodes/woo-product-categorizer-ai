@@ -9,6 +9,7 @@ namespace WooProductCategorizerAi\Tests;
 
 use Exception;
 use WooProductCategorizerAi\Categorize\Assignment;
+use WooProductCategorizerAi\Categorize\BulkRun;
 use WooProductCategorizerAi\Jobs\Scheduler;
 use WooProductCategorizerAi\Jobs\Status;
 use WP_UnitTestCase;
@@ -199,6 +200,132 @@ class SchedulerRecoveryTest extends WP_UnitTestCase {
 		update_option( Status::OPTION_KEY, $all, false );
 
 		$this->assertFalse( Status::is_running( Assignment::JOB ), 'A run this old is not coming back.' );
+	}
+
+	/**
+	 * Age a run so it looks as though it stopped without reporting anything.
+	 *
+	 * @param string $job     Job key.
+	 * @param int    $seconds How long ago it started.
+	 * @return void
+	 */
+	protected function age_run( $job, $seconds ) {
+		$all = get_option( Status::OPTION_KEY );
+
+		$all[ $job ]['started'] = time() - (int) $seconds;
+
+		update_option( Status::OPTION_KEY, $all, false );
+	}
+
+	/**
+	 * The case none of the Action Scheduler hooks can catch: the chain simply
+	 * stopped, so nothing ever reported an outcome and the status kept the last
+	 * thing a batch wrote into it.
+	 *
+	 * @return void
+	 */
+	public function test_a_run_whose_chain_died_is_closed_out_on_the_timeout() {
+		Status::start( Assignment::JOB );
+		Status::measure( Assignment::JOB, 4152 );
+		Status::advance( Assignment::JOB, 600 );
+
+		$this->age_run( Assignment::JOB, Status::STALE_AFTER + 1 );
+
+		$this->assertSame( array( Assignment::JOB ), Scheduler::reap_stranded_runs() );
+		$this->assertSame( 'failed', Status::get( Assignment::JOB )['state'] );
+		$this->assertNotSame( '', Status::get( Assignment::JOB )['message'] );
+	}
+
+	/**
+	 * Reaping is what frees the button. Without it the screen keeps reporting a run
+	 * that ended hours ago as still going.
+	 *
+	 * @return void
+	 */
+	public function test_a_reaped_run_can_be_started_again() {
+		Status::start( Assignment::JOB );
+
+		$this->age_run( Assignment::JOB, Status::STALE_AFTER + 1 );
+
+		Scheduler::reap_stranded_runs();
+
+		$this->assertTrue( Scheduler::trigger( Assignment::JOB ) );
+	}
+
+	/**
+	 * A run still inside the timeout is a run that may yet finish.
+	 *
+	 * @return void
+	 */
+	public function test_a_run_inside_the_timeout_is_left_alone() {
+		Status::start( Assignment::JOB );
+
+		$this->age_run( Assignment::JOB, Status::STALE_AFTER - 60 );
+
+		$this->assertSame( array(), Scheduler::reap_stranded_runs() );
+		$this->assertSame( 'running', Status::get( Assignment::JOB )['state'] );
+	}
+
+	/**
+	 * A finished run is not reaped a second time. Its own reason for stopping is
+	 * better than anything the reaper could say about it.
+	 *
+	 * @return void
+	 */
+	public function test_a_finished_run_is_never_reaped() {
+		Status::start( Assignment::JOB );
+		Status::finish( Assignment::JOB, 'All done.' );
+
+		$this->age_run( Assignment::JOB, Status::STALE_AFTER + 1 );
+
+		$this->assertSame( array(), Scheduler::reap_stranded_runs() );
+		$this->assertSame( 'success', Status::get( Assignment::JOB )['state'] );
+		$this->assertSame( 'All done.', Status::get( Assignment::JOB )['message'] );
+	}
+
+	/**
+	 * A batch may legitimately sit at the provider for a full day — four times
+	 * longer than the timeout allows a run to look alive. Reaping it would report a
+	 * healthy run as broken and drop the record the Cancel button needs.
+	 *
+	 * @return void
+	 */
+	public function test_a_batch_waiting_at_the_provider_is_not_reaped() {
+		Status::start( Assignment::JOB );
+
+		$this->age_run( Assignment::JOB, Status::STALE_AFTER + 1 );
+
+		update_option(
+			BulkRun::OPTION_KEY,
+			array(
+				'batch_id'  => 'batch_abc123',
+				'run'       => Status::get( Assignment::JOB )['started'],
+				'submitted' => time() - Status::STALE_AFTER,
+				'state'     => 'in_progress',
+			)
+		);
+
+		$this->assertSame( array(), Scheduler::reap_stranded_runs() );
+		$this->assertSame( 'running', Status::get( Assignment::JOB )['state'] );
+
+		delete_option( BulkRun::OPTION_KEY );
+	}
+
+	/**
+	 * The exemption is for the batch, not for everything else going on beside it.
+	 *
+	 * @return void
+	 */
+	public function test_a_batch_in_flight_does_not_protect_the_other_jobs() {
+		Status::start( 'taxonomy' );
+
+		$this->age_run( 'taxonomy', Status::STALE_AFTER + 1 );
+
+		update_option( BulkRun::OPTION_KEY, array( 'batch_id' => 'batch_abc123' ) );
+
+		$this->assertSame( array( 'taxonomy' ), Scheduler::reap_stranded_runs() );
+
+		delete_option( BulkRun::OPTION_KEY );
 	}
 
 	/**

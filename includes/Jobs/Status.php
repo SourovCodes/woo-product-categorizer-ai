@@ -219,11 +219,55 @@ class Status {
 	public static function is_running( $job ) {
 		$status = self::get( $job );
 
-		if ( 'running' !== $status['state'] ) {
+		return 'running' === $status['state'] && ! self::is_stranded( $status );
+	}
+
+	/**
+	 * Whether a run has sat in the running state long enough to be presumed dead.
+	 *
+	 * A run leaves "running" from inside one of its own chained actions. When the
+	 * chain breaks in a way Action Scheduler never notices — the successor was never
+	 * queued, or the queue itself stopped being processed — nothing is left to close
+	 * the status, and it stays as the last action wrote it forever.
+	 *
+	 * Expressed as its own rule rather than inlined into is_running(), because the
+	 * screen has to ask the same question and the two answers drifting apart is the
+	 * defect this exists to prevent: the Run button freeing itself on the timeout
+	 * while the text beside it still read "Running now" from six hours earlier.
+	 *
+	 * @param array $status Status array from get().
+	 * @return bool True when the run is past the point of being believed.
+	 */
+	public static function is_stranded( array $status ) {
+		if ( ! isset( $status['state'] ) || 'running' !== $status['state'] ) {
 			return false;
 		}
 
-		return ( time() - (int) $status['started'] ) < self::STALE_AFTER;
+		return ( time() - (int) $status['started'] ) >= self::STALE_AFTER;
+	}
+
+	/**
+	 * Close out a run that is past being believed.
+	 *
+	 * Whoever looks at the job is the one who reaps it. There is no timer here that
+	 * could do it instead — the whole point is that this run's own chain is gone —
+	 * so the work happens on the next look at the settings screen, which is also the
+	 * first moment anybody could have been misled by it.
+	 *
+	 * @param string $job Job key.
+	 * @return bool True when a stranded run was closed out.
+	 */
+	public static function reap( $job ) {
+		if ( ! self::is_stranded( self::get( $job ) ) ) {
+			return false;
+		}
+
+		self::fail(
+			$job,
+			__( 'Interrupted: the run stopped without reporting an outcome, and nothing has moved it forward since. Nothing was left half-written — run it again when you are ready.', 'woo-product-categorizer-ai' )
+		);
+
+		return true;
 	}
 
 	/**

@@ -794,10 +794,7 @@ class OpenAiProvider implements ProviderInterface, BatchProviderInterface {
 			array(
 				// Uploading a few megabytes takes longer than asking a question does.
 				'timeout' => self::UPLOAD_TIMEOUT,
-				'headers' => array(
-					'Authorization' => 'Bearer ' . $key,
-					'Content-Type'  => 'multipart/form-data; boundary=' . $boundary,
-				),
+				'headers' => $this->build_headers( $key, 'multipart/form-data; boundary=' . $boundary ),
 				'body'    => $body,
 			)
 		);
@@ -1081,14 +1078,34 @@ class OpenAiProvider implements ProviderInterface, BatchProviderInterface {
 	 *
 	 * Never logged, in full or in part: they carry the credential.
 	 *
-	 * @param string $key API key.
+	 * @param string $key          API key.
+	 * @param string $content_type Media type of the body. The batch upload sends
+	 *                             multipart rather than JSON.
 	 * @return array Headers.
 	 */
-	protected function build_headers( $key ) {
+	protected function build_headers( $key, $content_type = 'application/json' ) {
 		return array(
 			'Authorization' => 'Bearer ' . $key,
-			'Content-Type'  => 'application/json',
+			'Content-Type'  => $content_type,
+			'User-Agent'    => self::user_agent(),
 		);
+	}
+
+	/**
+	 * Identify the plugin and the shop to the provider.
+	 *
+	 * Carried on every request because it is the only thing tying an account's
+	 * traffic back to a particular site. A shop asking OpenAI why it was rate
+	 * limited, or which of its installations spent a day's budget, has nothing to
+	 * point at without it — the key alone is shared by every site it is pasted into.
+	 *
+	 * The site's own URL is already public and is sent to the provider on no other
+	 * basis than this, so it carries no catalogue and no customer data.
+	 *
+	 * @return string User-Agent value.
+	 */
+	protected static function user_agent() {
+		return 'WooProductCategorizerAi/' . WPCAI_VERSION . '; ' . home_url( '/' );
 	}
 
 	/**
